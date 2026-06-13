@@ -17,7 +17,7 @@ Current sound sources:
 Current sound path:
 
 ```text
-oscillator / noise → low-pass filter → soft Buttery Fuzz mix → true left/right stereo spread → master Output → analyser meters / speakers
+oscillator / noise → low-pass filter → soft Buttery Fuzz mix → post-fuzz low-pass filter → true left/right stereo spread → master Output → analyser meters / speakers
 ```
 
 Feedback is parked in v0.20.
@@ -37,8 +37,9 @@ Current safety rules:
 - the fuzz stage uses rounded saturation, not hard clipping
 - the fuzz output is trimmed before the mix
 - the dry signal remains in the mix so the distortion stays softer
+- Cutoff shapes the sound before and after the fuzz stage
 - Resonance still reaches 40 for a stronger audible peak
-- true left/right stereo spread is added after the fuzz mix
+- true left/right stereo spread is added after the post-fuzz filter
 - Feedback is not connected in v0.20
 - Panic Stop silences the app quickly
 - no fake self-oscillation is connected
@@ -79,11 +80,18 @@ Controls the low-pass filter cutoff.
 
 In v0.19, this range was extended from 8000 Hz to 16000 Hz.
 
-This means the filter can now open much brighter than before. That matters because fuzz and distortion need enough high-frequency content to judge their tone properly.
+In this v0.20 branch, Cutoff now controls two stages:
+
+```text
+pre-fuzz low-pass filter
+post-fuzz low-pass filter
+```
+
+This was added because fuzz can create new harmonics after the first filter. The post-fuzz filter makes Cutoff feel strong again by shaping the final tone after the distortion stage.
 
 ### Resonance
 
-Emphasises the filter cutoff point.
+Emphasises the first filter cutoff point.
 
 In this v0.20 branch, Resonance now reaches 40 instead of 8, so it should be much more obvious.
 
@@ -111,7 +119,7 @@ The goal is audible soft buttery distortion, not raspy hard clipping.
 
 ### Stereo width
 
-A true left/right stereo-width branch is active after the fuzz mix.
+A true left/right stereo-width branch is active after the post-fuzz filter.
 
 It uses two very short offset branches panned left and right. It is not a delay effect control and should stay controlled.
 
@@ -157,6 +165,7 @@ Use this checklist after pulling v0.20.
 - header says `v0.20 buttery fuzz distortion`
 - oscillator starts and stops
 - noise starts and stops
+- Cutoff / Brightness strongly changes the tone even when Buttery Fuzz is high
 - Buttery Fuzz slider works from 0 to 100
 - oscillator gains soft rounded distortion as Buttery Fuzz rises
 - noise gains character without becoming raspy or brittle
@@ -209,7 +218,9 @@ Current direction: soft rounded saturation with enough drive to be audible.
 
 Raised Resonance maximum from 8 to 40.
 
-Added a true left/right stereo-width branch after the fuzz mix.
+Added a post-fuzz low-pass filter controlled by Cutoff so distortion does not weaken the Cutoff control.
+
+Added a true left/right stereo-width branch after the post-fuzz filter.
 
 Feedback is parked in this version. The v0.20 target is good fuzz only.
 
