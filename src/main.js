@@ -14,6 +14,8 @@ const bands = [
 ];
 
 let audioContext = null;
+let masterGain = null;
+
 let oscillator = null;
 let oscillatorGain = null;
 let isOscillatorRunning = false;
@@ -30,7 +32,7 @@ document.querySelector("#app").innerHTML = `
         <h1>SpectraSynth</h1>
         <p class="subtitle">Visible spectral instrument</p>
       </div>
-      <div class="version-pill">v0.5 noise source</div>
+      <div class="version-pill">v0.6 master output</div>
     </header>
 
     <section class="control-grid">
@@ -71,7 +73,7 @@ document.querySelector("#app").innerHTML = `
         </label>
         <label>
           Output
-          <input type="range" min="0" max="100" value="70" />
+          <input id="outputSlider" type="range" min="0" max="100" value="70" />
         </label>
       </section>
     </section>
@@ -109,13 +111,14 @@ document.querySelector("#app").innerHTML = `
 
     <section class="panel patch-summary">
       <h2>Plain Patch Summary</h2>
-      <p id="patchSummaryText">No sound engine running. Press Start Oscillator or Start Noise to test one quiet source.</p>
+      <p id="patchSummaryText">No sound engine running. Press Start Oscillator or Start Noise to test one quiet source. Output is set to 70%.</p>
     </section>
   </main>
 `;
 
 const oscillatorButton = document.querySelector("#oscillatorButton");
 const noiseButton = document.querySelector("#noiseButton");
+const outputSlider = document.querySelector("#outputSlider");
 const patchSummaryText = document.querySelector("#patchSummaryText");
 
 oscillatorButton.addEventListener("click", async () => {
@@ -136,9 +139,20 @@ noiseButton.addEventListener("click", async () => {
   await startNoise();
 });
 
+outputSlider.addEventListener("input", () => {
+  updateMasterGainFromSlider();
+  updatePatchSummary();
+});
+
 async function ensureAudioContext() {
   if (!audioContext) {
     audioContext = new AudioContext();
+  }
+
+  if (!masterGain) {
+    masterGain = audioContext.createGain();
+    masterGain.connect(audioContext.destination);
+    updateMasterGainFromSlider();
   }
 
   if (audioContext.state === "suspended") {
@@ -146,6 +160,17 @@ async function ensureAudioContext() {
   }
 
   return audioContext;
+}
+
+function updateMasterGainFromSlider() {
+  if (!masterGain || !audioContext) {
+    return;
+  }
+
+  const sliderValue = Number(outputSlider.value) / 100;
+  const safeMasterLevel = sliderValue * 0.5;
+
+  masterGain.gain.setTargetAtTime(safeMasterLevel, audioContext.currentTime, 0.015);
 }
 
 async function startOscillator() {
@@ -161,7 +186,7 @@ async function startOscillator() {
   oscillatorGain.gain.linearRampToValueAtTime(0.04, context.currentTime + 0.05);
 
   oscillator.connect(oscillatorGain);
-  oscillatorGain.connect(context.destination);
+  oscillatorGain.connect(masterGain);
 
   oscillator.start();
 
@@ -210,7 +235,7 @@ async function startNoise() {
   noiseGain.gain.linearRampToValueAtTime(0.025, context.currentTime + 0.05);
 
   noiseSource.connect(noiseGain);
-  noiseGain.connect(context.destination);
+  noiseGain.connect(masterGain);
 
   noiseSource.start();
 
@@ -259,24 +284,26 @@ function createWhiteNoiseBuffer(context) {
 }
 
 function updatePatchSummary() {
+  const outputPercent = outputSlider.value;
+
   if (isOscillatorRunning && isNoiseRunning) {
     patchSummaryText.textContent =
-      "One quiet sawtooth oscillator and one quiet white noise source are running. No analyser, vocoder, effects, MIDI, microphone, filters, or sensors are connected yet.";
+      `One quiet sawtooth oscillator and one quiet white noise source are running through the master Output control, currently set to ${outputPercent}%. No analyser, vocoder, effects, MIDI, microphone, filters, or sensors are connected yet.`;
     return;
   }
 
   if (isOscillatorRunning) {
     patchSummaryText.textContent =
-      "One quiet sawtooth oscillator is running at A3. No analyser, vocoder, effects, MIDI, microphone, filters, or sensors are connected yet.";
+      `One quiet sawtooth oscillator is running at A3 through the master Output control, currently set to ${outputPercent}%. No analyser, vocoder, effects, MIDI, microphone, filters, or sensors are connected yet.`;
     return;
   }
 
   if (isNoiseRunning) {
     patchSummaryText.textContent =
-      "One quiet white noise source is running. No analyser, vocoder, effects, MIDI, microphone, filters, or sensors are connected yet.";
+      `One quiet white noise source is running through the master Output control, currently set to ${outputPercent}%. No analyser, vocoder, effects, MIDI, microphone, filters, or sensors are connected yet.`;
     return;
   }
 
   patchSummaryText.textContent =
-    "No sound engine running. Press Start Oscillator or Start Noise to test one quiet source.";
+    `No sound engine running. Press Start Oscillator or Start Noise to test one quiet source. Output is set to ${outputPercent}%.`;
 }
