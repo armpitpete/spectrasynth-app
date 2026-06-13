@@ -9,9 +9,9 @@ const ANALYSER_MAX_DECIBELS = -35;
 const ANALYSER_BAND_COUNT = 10;
 const ANALYSER_MAX_FREQUENCY = 10000;
 const FUZZ_MIN_INPUT_GAIN = 1.0;
-const FUZZ_MAX_INPUT_GAIN = 60.0;
-const FUZZ_OUTPUT_TRIM = 0.22;
-const FUZZ_CURVE_DRIVE = 8.0;
+const FUZZ_MAX_INPUT_GAIN = 26.0;
+const FUZZ_OUTPUT_TRIM = 0.28;
+const FUZZ_CURVE_DRIVE = 3.8;
 const STEREO_LEFT_DELAY_SECONDS = 0.004;
 const STEREO_RIGHT_DELAY_SECONDS = 0.009;
 const STEREO_CENTER_GAIN = 0.62;
@@ -155,7 +155,7 @@ document.querySelector("#app").innerHTML = `
 
     <section class="panel patch-summary">
       <h2>Plain Patch Summary</h2>
-      <p id="patchSummaryText">Stable audio core with analyser meters. No sound engine running. Press Start Oscillator or Start Noise to test one quiet source. Output is set to 70%, clamped to a safe maximum. Low-pass cutoff is set to 2600 Hz and can now open up to 16000 Hz. Resonance now reaches 40 for a much stronger audible peak. Buttery Fuzz is set to 70% and now uses high-drive clipping. A stronger left/right stereo-width branch is active after the fuzz mix. Feedback is not connected in v0.20. The spectral meters listen after the master Output control. The spectral faders are visual only. No fake self-oscillation is connected.</p>
+      <p id="patchSummaryText">Stable audio core with analyser meters. No sound engine running. Press Start Oscillator or Start Noise to test one quiet source. Output is set to 70%, clamped to a safe maximum. Low-pass cutoff is set to 2600 Hz and can now open up to 16000 Hz. Resonance reaches 40 for a strong audible peak. Buttery Fuzz is set to 70% and now uses rounded saturation instead of hard clipping. A stronger left/right stereo-width branch is active after the fuzz mix. Feedback is not connected in v0.20. The spectral meters listen after the master Output control. The spectral faders are visual only. No fake self-oscillation is connected.</p>
     </section>
   </main>
 `;
@@ -310,8 +310,8 @@ function updateButteryFuzzFromSlider() {
 
   const fuzzAmount = Number(butteryFuzzSlider.value) / 100;
   const fuzzInputGain = FUZZ_MIN_INPUT_GAIN + fuzzAmount * (FUZZ_MAX_INPUT_GAIN - FUZZ_MIN_INPUT_GAIN);
-  const dryLevel = Math.max(0, 1 - fuzzAmount * 1.05);
-  const wetLevel = fuzzAmount * 1.35;
+  const dryLevel = Math.max(0.35, 1 - fuzzAmount * 0.6);
+  const wetLevel = fuzzAmount * 0.95;
 
   butteryFuzzInputGain.gain.setTargetAtTime(fuzzInputGain, audioContext.currentTime, 0.015);
   butteryFuzzDryGain.gain.setTargetAtTime(dryLevel, audioContext.currentTime, 0.015);
@@ -398,11 +398,10 @@ function createButteryFuzzCurve() {
   for (let index = 0; index < curveLength; index += 1) {
     const x = (index / (curveLength - 1)) * 2 - 1;
     const driven = x * FUZZ_CURVE_DRIVE;
-    const hardLimit = Math.max(-1, Math.min(1, driven));
-    const saturated = Math.tanh(driven * 1.4);
-    const squaredEdge = Math.sign(saturated) * Math.pow(Math.abs(saturated), 0.52);
-    const asymmetry = 0.14 * Math.tanh((driven + 0.35) * 0.65);
-    curve[index] = Math.max(-1, Math.min(1, hardLimit * 0.38 + squaredEdge * 0.52 + asymmetry));
+    const rounded = Math.tanh(driven) / Math.tanh(FUZZ_CURVE_DRIVE);
+    const softArc = (2 / Math.PI) * Math.atan(driven * 0.85);
+    const warmEven = 0.045 * (Math.tanh((driven + 0.25) * 0.7) - Math.tanh(0.25 * 0.7));
+    curve[index] = Math.max(-1, Math.min(1, rounded * 0.72 + softArc * 0.24 + warmEven));
   }
 
   return curve;
@@ -572,7 +571,7 @@ function getFuzzSummaryText() {
   const fuzzAmount = fuzzPercent / 100;
   const fuzzInputGain = FUZZ_MIN_INPUT_GAIN + fuzzAmount * (FUZZ_MAX_INPUT_GAIN - FUZZ_MIN_INPUT_GAIN);
 
-  return `Buttery Fuzz is set to ${fuzzPercent}%, with ${fuzzInputGain.toFixed(2)}x input drive, mostly-wet blend at high settings, an aggressive clipping curve, and true left/right stereo spread after the fuzz mix.`;
+  return `Buttery Fuzz is set to ${fuzzPercent}%, with ${fuzzInputGain.toFixed(2)}x input drive, rounded saturation, dry blend kept in the sound, and true left/right stereo spread after the fuzz mix.`;
 }
 
 function updatePatchSummary() {
