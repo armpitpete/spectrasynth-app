@@ -8,9 +8,13 @@ const ANALYSER_MIN_DECIBELS = -90;
 const ANALYSER_MAX_DECIBELS = -35;
 const ANALYSER_BAND_COUNT = 10;
 const ANALYSER_MAX_FREQUENCY = 10000;
-const FUZZ_INPUT_GAIN = 2.4;
-const FUZZ_OUTPUT_GAIN = 0.2;
+const FUZZ_MIN_INPUT_GAIN = 1.0;
+const FUZZ_MAX_INPUT_GAIN = 3.2;
+const FUZZ_OUTPUT_TRIM = 0.22;
 const FUZZ_CURVE_DRIVE = 1.5;
+const STEREO_SPREAD_DELAY_SECONDS = 0.006;
+const STEREO_CENTER_GAIN = 0.78;
+const STEREO_SPREAD_GAIN = 0.22;
 
 const bands = [
   { number: 1, label: "Low", height: 28 },
@@ -30,6 +34,13 @@ let toneFilter = null;
 let butteryFuzzInputGain = null;
 let butteryFuzz = null;
 let butteryFuzzOutputGain = null;
+let butteryFuzzDryGain = null;
+let butteryFuzzWetGain = null;
+let butteryFuzzMixGain = null;
+let stereoCenterGain = null;
+let stereoSpreadDelay = null;
+let stereoSpreadPanner = null;
+let stereoSpreadGain = null;
 let masterGain = null;
 let analyser = null;
 let analyserData = null;
@@ -77,8 +88,8 @@ document.querySelector("#app").innerHTML = `
           <input id="resonanceSlider" type="range" min="0.4" max="8" step="0.1" value="0.7" />
         </label>
         <label>
-          Feedback (parked)
-          <input id="feedbackSlider" type="range" min="0" max="100" value="0" disabled />
+          Buttery Fuzz
+          <input id="butteryFuzzSlider" type="range" min="0" max="100" value="70" />
         </label>
         <label>
           Virtual Distance
@@ -140,7 +151,7 @@ document.querySelector("#app").innerHTML = `
 
     <section class="panel patch-summary">
       <h2>Plain Patch Summary</h2>
-      <p id="patchSummaryText">Stable audio core with analyser meters. No sound engine running. Press Start Oscillator or Start Noise to test one quiet source. Output is set to 70%, clamped to a safe maximum. Low-pass cutoff is set to 2600 Hz and can now open up to 16000 Hz. A fixed buttery fuzz stage is active after the low-pass filter. Resonance is set to 0.7. Feedback is parked for v0.20 while the fuzz tone is tuned. The spectral meters listen after the master Output control. The spectral faders are visual only. No fake self-oscillation is connected.</p>
+      <p id="patchSummaryText">Stable audio core with analyser meters. No sound engine running. Press Start Oscillator or Start Noise to test one quiet source. Output is set to 70%, clamped to a safe maximum. Low-pass cutoff is set to 2600 Hz and can now open up to 16000 Hz. Buttery Fuzz is set to 70%. A small stereo-width branch is active after the fuzz mix. Feedback is not connected in v0.20. The spectral meters listen after the master Output control. The spectral faders are visual only. No fake self-oscillation is connected.</p>
     </section>
   </main>
 `;
@@ -150,7 +161,7 @@ const noiseButton = document.querySelector("#noiseButton");
 const panicButton = document.querySelector("#panicButton");
 const cutoffSlider = document.querySelector("#cutoffSlider");
 const resonanceSlider = document.querySelector("#resonanceSlider");
-const feedbackSlider = document.querySelector("#feedbackSlider");
+const butteryFuzzSlider = document.querySelector("#butteryFuzzSlider");
 const outputSlider = document.querySelector("#outputSlider");
 const patchSummaryText = document.querySelector("#patchSummaryText");
 const meterFills = document.querySelectorAll(".meter-fill");
@@ -185,7 +196,10 @@ resonanceSlider.addEventListener("input", () => {
   updatePatchSummary();
 });
 
-feedbackSlider.addEventListener("input", updatePatchSummary);
+butteryFuzzSlider.addEventListener("input", () => {
+  updateButteryFuzzFromSlider();
+  updatePatchSummary();
+});
 
 outputSlider.addEventListener("input", () => {
   updateMasterGainFromSlider();
@@ -221,17 +235,39 @@ async function ensureAudioContext() {
     butteryFuzzInputGain = audioContext.createGain();
     butteryFuzz = audioContext.createWaveShaper();
     butteryFuzzOutputGain = audioContext.createGain();
+    butteryFuzzDryGain = audioContext.createGain();
+    butteryFuzzWetGain = audioContext.createGain();
+    butteryFuzzMixGain = audioContext.createGain();
+    stereoCenterGain = audioContext.createGain();
+    stereoSpreadDelay = audioContext.createDelay(0.02);
+    stereoSpreadPanner = audioContext.createStereoPanner();
+    stereoSpreadGain = audioContext.createGain();
 
-    butteryFuzzInputGain.gain.setValueAtTime(FUZZ_INPUT_GAIN, audioContext.currentTime);
     butteryFuzz.curve = createButteryFuzzCurve();
     butteryFuzz.oversample = "2x";
-    butteryFuzzOutputGain.gain.setValueAtTime(FUZZ_OUTPUT_GAIN, audioContext.currentTime);
+    butteryFuzzOutputGain.gain.setValueAtTime(FUZZ_OUTPUT_TRIM, audioContext.currentTime);
+    butteryFuzzMixGain.gain.setValueAtTime(1, audioContext.currentTime);
+    stereoCenterGain.gain.setValueAtTime(STEREO_CENTER_GAIN, audioContext.currentTime);
+    stereoSpreadDelay.delayTime.setValueAtTime(STEREO_SPREAD_DELAY_SECONDS, audioContext.currentTime);
+    stereoSpreadPanner.pan.setValueAtTime(0.8, audioContext.currentTime);
+    stereoSpreadGain.gain.setValueAtTime(STEREO_SPREAD_GAIN, audioContext.currentTime);
 
+    toneFilter.connect(butteryFuzzDryGain);
     toneFilter.connect(butteryFuzzInputGain);
     butteryFuzzInputGain.connect(butteryFuzz);
     butteryFuzz.connect(butteryFuzzOutputGain);
-    butteryFuzzOutputGain.connect(masterGain);
+    butteryFuzzOutputGain.connect(butteryFuzzWetGain);
+    butteryFuzzDryGain.connect(butteryFuzzMixGain);
+    butteryFuzzWetGain.connect(butteryFuzzMixGain);
+    butteryFuzzMixGain.connect(stereoCenterGain);
+    butteryFuzzMixGain.connect(stereoSpreadDelay);
+    stereoCenterGain.connect(masterGain);
+    stereoSpreadDelay.connect(stereoSpreadPanner);
+    stereoSpreadPanner.connect(stereoSpreadGain);
+    stereoSpreadGain.connect(masterGain);
+
     updateToneFilterFromControls();
+    updateButteryFuzzFromSlider();
   }
 
   if (audioContext.state === "suspended") {
@@ -251,6 +287,21 @@ function updateToneFilterFromControls() {
 
   toneFilter.frequency.setTargetAtTime(cutoffFrequency, audioContext.currentTime, 0.015);
   toneFilter.Q.setTargetAtTime(resonanceAmount, audioContext.currentTime, 0.015);
+}
+
+function updateButteryFuzzFromSlider() {
+  if (!butteryFuzzInputGain || !butteryFuzzDryGain || !butteryFuzzWetGain || !audioContext) {
+    return;
+  }
+
+  const fuzzAmount = Number(butteryFuzzSlider.value) / 100;
+  const fuzzInputGain = FUZZ_MIN_INPUT_GAIN + fuzzAmount * (FUZZ_MAX_INPUT_GAIN - FUZZ_MIN_INPUT_GAIN);
+  const dryLevel = 1 - fuzzAmount * 0.65;
+  const wetLevel = fuzzAmount;
+
+  butteryFuzzInputGain.gain.setTargetAtTime(fuzzInputGain, audioContext.currentTime, 0.015);
+  butteryFuzzDryGain.gain.setTargetAtTime(dryLevel, audioContext.currentTime, 0.015);
+  butteryFuzzWetGain.gain.setTargetAtTime(wetLevel, audioContext.currentTime, 0.015);
 }
 
 function updateMasterGainFromSlider() {
@@ -343,6 +394,7 @@ async function startOscillator() {
 
   wasPanicStopped = false;
   updateMasterGainFromSlider();
+  updateButteryFuzzFromSlider();
 
   oscillator = context.createOscillator();
   oscillatorGain = context.createGain();
@@ -404,6 +456,7 @@ async function startNoise() {
 
   wasPanicStopped = false;
   updateMasterGainFromSlider();
+  updateButteryFuzzFromSlider();
 
   noiseSource = context.createBufferSource();
   noiseGain = context.createGain();
@@ -461,7 +514,6 @@ function stopNoise(options = {}) {
 
 function panicStop() {
   wasPanicStopped = true;
-  feedbackSlider.value = "0";
 
   if (audioContext && masterGain) {
     silenceMasterOutput();
@@ -491,44 +543,52 @@ function createWhiteNoiseBuffer(context) {
   return buffer;
 }
 
-function getFeedbackSummaryText() {
-  return "Feedback is parked for v0.20 while the fixed buttery fuzz tone is tuned. No feedback loop is connected in this version.";
+function getFuzzSummaryText() {
+  const fuzzPercent = Number(butteryFuzzSlider.value);
+
+  if (fuzzPercent <= 0) {
+    return "Buttery Fuzz is off.";
+  }
+
+  const fuzzAmount = fuzzPercent / 100;
+  const fuzzInputGain = FUZZ_MIN_INPUT_GAIN + fuzzAmount * (FUZZ_MAX_INPUT_GAIN - FUZZ_MIN_INPUT_GAIN);
+
+  return `Buttery Fuzz is set to ${fuzzPercent}%, with ${fuzzInputGain.toFixed(2)}x input drive, wet/dry blend, and a small stereo-width branch after the fuzz mix.`;
 }
 
 function updatePatchSummary() {
   const outputPercent = outputSlider.value;
   const cutoffFrequency = cutoffSlider.value;
   const resonanceAmount = resonanceSlider.value;
-  const feedbackSummary = getFeedbackSummaryText();
+  const fuzzSummary = getFuzzSummaryText();
   const safetyText = `Output is clamped to a safe maximum gain of ${MAX_SAFE_MASTER_GAIN}.`;
   const spectralText = "The spectral meters are analyser-driven from the real output. The spectral faders are visual only and do not control sound yet.";
-  const fuzzText = `A fixed buttery fuzz stage is active after the low-pass filter, using ${FUZZ_INPUT_GAIN}x input gain, ${FUZZ_CURVE_DRIVE} curve drive, and ${FUZZ_OUTPUT_GAIN} output trim.`;
   const notYetText = "No feedback loop, vocoder, delay/reverb effects, MIDI, microphone, sensors, 10 real filter bands, filter mode switching, or fake self-oscillation is connected yet.";
 
   if (wasPanicStopped && !isOscillatorRunning && !isNoiseRunning) {
     patchSummaryText.textContent =
-      `Panic Stop used. Oscillator and noise are stopped, and output has been silenced. The analyser meters will fall as the output reaches silence. Press Start Oscillator or Start Noise to resume normal use. ${feedbackSummary} ${safetyText} Low-pass cutoff is set to ${cutoffFrequency} Hz. Resonance is set to ${resonanceAmount}. ${notYetText}`;
+      `Panic Stop used. Oscillator and noise are stopped, and output has been silenced. The analyser meters will fall as the output reaches silence. Press Start Oscillator or Start Noise to resume normal use. ${fuzzSummary} ${safetyText} Low-pass cutoff is set to ${cutoffFrequency} Hz. Resonance is set to ${resonanceAmount}. ${notYetText}`;
     return;
   }
 
   if (isOscillatorRunning && isNoiseRunning) {
     patchSummaryText.textContent =
-      `One quiet sawtooth oscillator and one quiet white noise source are running through one low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the fixed buttery fuzz stage and master Output control set to ${outputPercent}%. ${feedbackSummary} ${safetyText} ${fuzzText} ${spectralText} ${notYetText}`;
+      `One quiet sawtooth oscillator and one quiet white noise source are running through one low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the Buttery Fuzz stage and master Output control set to ${outputPercent}%. ${fuzzSummary} ${safetyText} ${spectralText} ${notYetText}`;
     return;
   }
 
   if (isOscillatorRunning) {
     patchSummaryText.textContent =
-      `One quiet sawtooth oscillator is running at A3 through one low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the fixed buttery fuzz stage and master Output control set to ${outputPercent}%. ${feedbackSummary} ${safetyText} ${fuzzText} ${spectralText} ${notYetText}`;
+      `One quiet sawtooth oscillator is running at A3 through one low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the Buttery Fuzz stage and master Output control set to ${outputPercent}%. ${fuzzSummary} ${safetyText} ${spectralText} ${notYetText}`;
     return;
   }
 
   if (isNoiseRunning) {
     patchSummaryText.textContent =
-      `One quiet white noise source is running through one low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the fixed buttery fuzz stage and master Output control set to ${outputPercent}%. ${feedbackSummary} ${safetyText} ${fuzzText} ${spectralText} ${notYetText}`;
+      `One quiet white noise source is running through one low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the Buttery Fuzz stage and master Output control set to ${outputPercent}%. ${fuzzSummary} ${safetyText} ${spectralText} ${notYetText}`;
     return;
   }
 
   patchSummaryText.textContent =
-    `Stable audio core with analyser meters. No sound engine running. Press Start Oscillator or Start Noise to test one quiet source. Output is set to ${outputPercent}%. ${feedbackSummary} ${safetyText} Low-pass cutoff is set to ${cutoffFrequency} Hz. Resonance is set to ${resonanceAmount}. ${fuzzText} ${spectralText} ${notYetText}`;
+    `Stable audio core with analyser meters. No sound engine running. Press Start Oscillator or Start Noise to test one quiet source. Output is set to ${outputPercent}%. ${fuzzSummary} ${safetyText} Low-pass cutoff is set to ${cutoffFrequency} Hz. Resonance is set to ${resonanceAmount}. ${spectralText} ${notYetText}`;
 }
