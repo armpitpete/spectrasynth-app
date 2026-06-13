@@ -1,8 +1,8 @@
 import "./styles.css";
 
 const MAX_SAFE_MASTER_GAIN = 0.35;
-const MAX_SAFE_FEEDBACK_GAIN = 0.16;
-const FEEDBACK_DELAY_SECONDS = 0.008;
+const MAX_SAFE_FEEDBACK_GAIN = 0.45;
+const FEEDBACK_DELAY_SECONDS = 0.018;
 const PANIC_RAMP_SECONDS = 0.02;
 
 const bands = [
@@ -209,7 +209,7 @@ async function ensureAudioContext() {
   }
 
   if (!feedbackDelay) {
-    feedbackDelay = audioContext.createDelay(0.05);
+    feedbackDelay = audioContext.createDelay(0.08);
     feedbackGain = audioContext.createGain();
 
     feedbackDelay.delayTime.setValueAtTime(FEEDBACK_DELAY_SECONDS, audioContext.currentTime);
