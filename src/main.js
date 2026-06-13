@@ -33,6 +33,15 @@ const bands = [
   { number: 10, label: "Hiss", height: 82 },
 ];
 
+const spectralBandState = bands.map((band) => ({
+  number: band.number,
+  label: band.label,
+  faderValue: band.height,
+  isMuted: false,
+  analyserLevel: 0,
+}));
+
+let lastTouchedBandIndex = null;
 let audioContext = null;
 let toneFilter = null;
 let butteryFuzzInputGain = null;
@@ -71,7 +80,7 @@ document.querySelector("#app").innerHTML = `
         <h1>SpectraSynth</h1>
         <p class="subtitle">Visible spectral instrument</p>
       </div>
-      <div class="version-pill">v0.22 stable cutoff and Buttery Fuzz checkpoint</div>
+      <div class="version-pill">v0.23 spectral band state preparation</div>
     </header>
 
     <section class="control-grid">
@@ -129,14 +138,14 @@ document.querySelector("#app").innerHTML = `
     <section class="panel spectral-panel">
       <div class="section-heading">
         <h2>Spectral Engine</h2>
-        <p>10 live analyser meters. Faders remain visual-only and do not control sound yet.</p>
+        <p>10 live analyser meters. Faders and Mute buttons update stored band state only.</p>
       </div>
 
       <div class="band-bank">
         ${bands
           .map(
-            (band) => `
-              <article class="band-strip">
+            (band, bandIndex) => `
+              <article class="band-strip" data-band-index="${bandIndex}">
                 <div class="band-top">
                   <div class="band-number">${band.number}</div>
                   <div class="band-label">${band.label}</div>
@@ -148,8 +157,8 @@ document.querySelector("#app").innerHTML = `
                   </div>
                 </div>
 
-                <input class="band-fader" type="range" min="0" max="100" value="${band.height}" />
-                <button class="mute-button">Mute</button>
+                <input class="band-fader" data-band-index="${bandIndex}" type="range" min="0" max="100" value="${band.height}" aria-label="${band.label} visual band value" />
+                <button class="mute-button" data-band-index="${bandIndex}" aria-pressed="false">Mute</button>
               </article>
             `
           )
@@ -159,7 +168,7 @@ document.querySelector("#app").innerHTML = `
 
     <section class="panel patch-summary">
       <h2>Plain Patch Summary</h2>
-      <p id="patchSummaryText">Stable cutoff and Buttery Fuzz checkpoint. The tested cutoff-response and Buttery Fuzz state is frozen. No sound engine running. Press Start Oscillator or Start Noise to test one quiet source. Output is set to 70%, clamped to a safe maximum. Cutoff / Brightness uses a perceptual response curve from 120 Hz to 16000 Hz, so the useful range is spread across the whole slider. The current mapped cutoff is about 2625 Hz and shapes both before and after the fuzz stage. Resonance reaches 40 for a strong audible peak. Buttery Fuzz is set to 70% and uses rounded saturation instead of hard clipping. Feedback is not connected in v0.22. The spectral meters listen after the master Output control. The spectral faders are visual only. No fake self-oscillation is connected.</p>
+      <p id="patchSummaryText">Spectral band state preparation. No sound engine running. Press Start Oscillator or Start Noise to test one quiet source. Output is set to 70%, clamped to a safe maximum. Cutoff / Brightness uses a perceptual response curve from 120 Hz to 16000 Hz, so the useful range is spread across the whole slider. The current mapped cutoff is about 2625 Hz and shapes both before and after the fuzz stage. Resonance reaches 40 for a strong audible peak. Buttery Fuzz is set to 70% and uses rounded saturation instead of hard clipping. The 10 spectral bands now store fader value, muted state, and analyser level, but faders and Mute buttons are visual-only and do not affect sound. Feedback is not connected in v0.23. No fake self-oscillation is connected.</p>
     </section>
   </main>
 `;
@@ -173,6 +182,8 @@ const butteryFuzzSlider = document.querySelector("#butteryFuzzSlider");
 const outputSlider = document.querySelector("#outputSlider");
 const patchSummaryText = document.querySelector("#patchSummaryText");
 const meterFills = document.querySelectorAll(".meter-fill");
+const bandFaders = document.querySelectorAll(".band-fader");
+const muteButtons = document.querySelectorAll(".mute-button");
 
 oscillatorButton.addEventListener("click", async () => {
   if (isOscillatorRunning) {
@@ -212,6 +223,28 @@ butteryFuzzSlider.addEventListener("input", () => {
 outputSlider.addEventListener("input", () => {
   updateMasterGainFromSlider();
   updatePatchSummary();
+});
+
+bandFaders.forEach((fader) => {
+  fader.addEventListener("input", () => {
+    const bandIndex = Number(fader.dataset.bandIndex);
+
+    spectralBandState[bandIndex].faderValue = Number(fader.value);
+    lastTouchedBandIndex = bandIndex;
+    updatePatchSummary();
+  });
+});
+
+muteButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    const bandIndex = Number(button.dataset.bandIndex);
+    const bandState = spectralBandState[bandIndex];
+
+    bandState.isMuted = !bandState.isMuted;
+    lastTouchedBandIndex = bandIndex;
+    updateMuteButtonFromState(button, bandState);
+    updatePatchSummary();
+  });
 });
 
 async function ensureAudioContext() {
@@ -377,7 +410,10 @@ function updateAnalyserMeters() {
   analyser.getByteFrequencyData(analyserData);
 
   meterFills.forEach((meterFill, bandIndex) => {
-    meterFill.style.height = `${getAnalyserBandLevel(bandIndex)}%`;
+    const analyserBandLevel = getAnalyserBandLevel(bandIndex);
+
+    spectralBandState[bandIndex].analyserLevel = analyserBandLevel;
+    meterFill.style.height = `${analyserBandLevel}%`;
   });
 
   analyserAnimationFrame = requestAnimationFrame(updateAnalyserMeters);
@@ -583,6 +619,12 @@ function createWhiteNoiseBuffer(context) {
   return buffer;
 }
 
+function updateMuteButtonFromState(button, bandState) {
+  button.textContent = bandState.isMuted ? "Muted" : "Mute";
+  button.classList.toggle("is-muted", bandState.isMuted);
+  button.setAttribute("aria-pressed", String(bandState.isMuted));
+}
+
 function getFuzzSummaryText() {
   const fuzzPercent = Number(butteryFuzzSlider.value);
 
@@ -596,41 +638,52 @@ function getFuzzSummaryText() {
   return `Buttery Fuzz is set to ${fuzzPercent}%, with ${fuzzInputGain.toFixed(2)}x input drive, rounded saturation, dry blend kept in the sound, post-fuzz cutoff shaping, and true left/right stereo spread.`;
 }
 
+function getSpectralBandSummaryText() {
+  const mutedBands = spectralBandState.filter((bandState) => bandState.isMuted);
+  const mutedSummary = mutedBands.length === 0
+    ? "No bands are marked muted."
+    : `${mutedBands.length} visual band${mutedBands.length === 1 ? " is" : "s are"} marked muted: ${mutedBands.map((bandState) => bandState.label).join(", ")}.`;
+  const lastTouchedSummary = lastTouchedBandIndex === null
+    ? "No spectral fader or Mute button has been moved yet."
+    : `Last touched band: ${spectralBandState[lastTouchedBandIndex].label} at ${spectralBandState[lastTouchedBandIndex].faderValue}% visual value, analyser level ${spectralBandState[lastTouchedBandIndex].analyserLevel}%.`;
+
+  return `The 10 spectral bands now store fader value, muted state, and analyser level. Faders and Mute buttons remain visual-only and do not affect sound. ${mutedSummary} ${lastTouchedSummary}`;
+}
+
 function updatePatchSummary() {
   const outputPercent = outputSlider.value;
   const cutoffFrequency = getRoundedCutoffFrequency();
   const resonanceAmount = resonanceSlider.value;
   const fuzzSummary = getFuzzSummaryText();
-  const checkpointText = "The tested cutoff-response and Buttery Fuzz state is frozen in this v0.22 checkpoint.";
+  const spectralStateText = getSpectralBandSummaryText();
   const safetyText = `Output is clamped to a safe maximum gain of ${MAX_SAFE_MASTER_GAIN}.`;
-  const spectralText = "The spectral meters are analyser-driven from the real output. The spectral faders are visual only and do not control sound yet.";
   const cutoffText = `Cutoff / Brightness uses a perceptual slider curve from ${CUTOFF_MIN_FREQUENCY} Hz to ${CUTOFF_MAX_FREQUENCY} Hz and is currently mapped to ${cutoffFrequency} Hz.`;
-  const notYetText = "No feedback loop, vocoder, delay/reverb effects, MIDI, microphone, sensors, 10 real filter bands, filter mode switching, or fake self-oscillation is connected yet.";
+  const notYetText = "No feedback loop, vocoder, delay/reverb effects, MIDI, microphone, sensors, 10 real filter bands, filter mode switching, band-fader audio behaviour, or fake self-oscillation is connected yet.";
 
   if (wasPanicStopped && !isOscillatorRunning && !isNoiseRunning) {
     patchSummaryText.textContent =
-      `Panic Stop used. Oscillator and noise are stopped, and output has been silenced. ${checkpointText} The analyser meters will fall as the output reaches silence. Press Start Oscillator or Start Noise to resume normal use. ${fuzzSummary} ${safetyText} ${cutoffText} Resonance is set to ${resonanceAmount}. ${notYetText}`;
+      `Panic Stop used. Oscillator and noise are stopped, and output has been silenced. The analyser meters will fall as the output reaches silence. Press Start Oscillator or Start Noise to resume normal use. ${fuzzSummary} ${safetyText} ${cutoffText} Resonance is set to ${resonanceAmount}. ${spectralStateText} ${notYetText}`;
     return;
   }
 
   if (isOscillatorRunning && isNoiseRunning) {
     patchSummaryText.textContent =
-      `One quiet sawtooth oscillator and one quiet white noise source are running through one frozen pre-fuzz low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the frozen Buttery Fuzz stage, then through a frozen post-fuzz low-pass filter that follows Cutoff, then through the master Output control set to ${outputPercent}%. ${checkpointText} ${fuzzSummary} ${safetyText} ${cutoffText} ${spectralText} ${notYetText}`;
+      `One quiet sawtooth oscillator and one quiet white noise source are running through one pre-fuzz low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the Buttery Fuzz stage, then through a post-fuzz low-pass filter that follows Cutoff, then through the master Output control set to ${outputPercent}%. ${fuzzSummary} ${safetyText} ${cutoffText} ${spectralStateText} ${notYetText}`;
     return;
   }
 
   if (isOscillatorRunning) {
     patchSummaryText.textContent =
-      `One quiet sawtooth oscillator is running at A3 through one frozen pre-fuzz low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the frozen Buttery Fuzz stage, then through a frozen post-fuzz low-pass filter that follows Cutoff, then through the master Output control set to ${outputPercent}%. ${checkpointText} ${fuzzSummary} ${safetyText} ${cutoffText} ${spectralText} ${notYetText}`;
+      `One quiet sawtooth oscillator is running at A3 through one pre-fuzz low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the Buttery Fuzz stage, then through a post-fuzz low-pass filter that follows Cutoff, then through the master Output control set to ${outputPercent}%. ${fuzzSummary} ${safetyText} ${cutoffText} ${spectralStateText} ${notYetText}`;
     return;
   }
 
   if (isNoiseRunning) {
     patchSummaryText.textContent =
-      `One quiet white noise source is running through one frozen pre-fuzz low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the frozen Buttery Fuzz stage, then through a frozen post-fuzz low-pass filter that follows Cutoff, then through the master Output control set to ${outputPercent}%. ${checkpointText} ${fuzzSummary} ${safetyText} ${cutoffText} ${spectralText} ${notYetText}`;
+      `One quiet white noise source is running through one pre-fuzz low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the Buttery Fuzz stage, then through a post-fuzz low-pass filter that follows Cutoff, then through the master Output control set to ${outputPercent}%. ${fuzzSummary} ${safetyText} ${cutoffText} ${spectralStateText} ${notYetText}`;
     return;
   }
 
   patchSummaryText.textContent =
-    `Stable cutoff and Buttery Fuzz checkpoint. ${checkpointText} No sound engine running. Press Start Oscillator or Start Noise to test one quiet source. Output is set to ${outputPercent}%. ${fuzzSummary} ${safetyText} ${cutoffText} Resonance is set to ${resonanceAmount}. ${spectralText} ${notYetText}`;
+    `Spectral band state preparation. No sound engine running. Press Start Oscillator or Start Noise to test one quiet source. Output is set to ${outputPercent}%. ${fuzzSummary} ${safetyText} ${cutoffText} Resonance is set to ${resonanceAmount}. ${spectralStateText} ${notYetText}`;
 }
