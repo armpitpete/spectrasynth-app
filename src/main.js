@@ -28,6 +28,7 @@ const bands = [
 let audioContext = null;
 let toneFilter = null;
 let feedbackDelay = null;
+let feedbackSaturation = null;
 let feedbackGain = null;
 let masterGain = null;
 let analyser = null;
@@ -51,7 +52,7 @@ document.querySelector("#app").innerHTML = `
         <h1>SpectraSynth</h1>
         <p class="subtitle">Visible spectral instrument</p>
       </div>
-      <div class="version-pill">v0.16 safe audition output</div>
+      <div class="version-pill">v0.17 buttery feedback character</div>
     </header>
 
     <section class="control-grid">
@@ -139,7 +140,7 @@ document.querySelector("#app").innerHTML = `
 
     <section class="panel patch-summary">
       <h2>Plain Patch Summary</h2>
-      <p id="patchSummaryText">Stable audio core with analyser meters. No sound engine running. Press Start Oscillator or Start Noise to test one quiet source. Output is set to 70%, clamped to a safe maximum. Low-pass cutoff is set to 2600 Hz. Resonance is set to 0.7. Feedback is off. The spectral meters listen after the master Output control. The spectral faders are visual only. No fake self-oscillation is connected.</p>
+      <p id="patchSummaryText">Stable audio core with analyser meters. No sound engine running. Press Start Oscillator or Start Noise to test one quiet source. Output is set to 70%, clamped to a safe maximum. Low-pass cutoff is set to 2600 Hz. Resonance is set to 0.7. Feedback is off. The feedback loop now includes gentle internal soft saturation. The spectral meters listen after the master Output control. The spectral faders are visual only. No fake self-oscillation is connected.</p>
     </section>
   </main>
 `;
@@ -225,13 +226,17 @@ async function ensureAudioContext() {
 
   if (!feedbackDelay) {
     feedbackDelay = audioContext.createDelay(0.08);
+    feedbackSaturation = audioContext.createWaveShaper();
     feedbackGain = audioContext.createGain();
 
     feedbackDelay.delayTime.setValueAtTime(FEEDBACK_DELAY_SECONDS, audioContext.currentTime);
+    feedbackSaturation.curve = createSoftFeedbackSaturationCurve();
+    feedbackSaturation.oversample = "2x";
     feedbackGain.gain.setValueAtTime(0, audioContext.currentTime);
 
     toneFilter.connect(feedbackDelay);
-    feedbackDelay.connect(feedbackGain);
+    feedbackDelay.connect(feedbackSaturation);
+    feedbackSaturation.connect(feedbackGain);
     feedbackGain.connect(toneFilter);
     updateFeedbackFromSlider();
   }
@@ -348,6 +353,19 @@ function getAnalyserBandLevel(bandIndex) {
   }
 
   return Math.round((total / count / 255) * 100);
+}
+
+function createSoftFeedbackSaturationCurve() {
+  const curveLength = 1024;
+  const curve = new Float32Array(curveLength);
+  const drive = 1.6;
+
+  for (let index = 0; index < curveLength; index += 1) {
+    const x = (index / (curveLength - 1)) * 2 - 1;
+    curve[index] = Math.tanh(x * drive) / Math.tanh(drive);
+  }
+
+  return curve;
 }
 
 async function startOscillator() {
@@ -516,7 +534,7 @@ function getFeedbackSummaryText() {
     return "Feedback is off.";
   }
 
-  return `Protected feedback is active at ${feedbackPercent}%, shaped for earlier response, capped to ${MAX_SAFE_FEEDBACK_GAIN} gain and routed through a ${FEEDBACK_DELAY_SECONDS}s delay.`;
+  return `Protected feedback is active at ${feedbackPercent}%, shaped for earlier response, capped to ${MAX_SAFE_FEEDBACK_GAIN} gain, routed through a ${FEEDBACK_DELAY_SECONDS}s delay, and gently soft-saturated inside the loop.`;
 }
 
 function updatePatchSummary() {
@@ -526,6 +544,7 @@ function updatePatchSummary() {
   const feedbackSummary = getFeedbackSummaryText();
   const safetyText = `Output is clamped to a safe maximum gain of ${MAX_SAFE_MASTER_GAIN}.`;
   const spectralText = "The spectral meters are analyser-driven from the real output. The spectral faders are visual only and do not control sound yet.";
+  const feedbackCharacterText = "The feedback loop uses gentle internal soft saturation to make feedback less brittle without adding a separate distortion effect.";
   const notYetText = "No vocoder, effects, MIDI, microphone, sensors, 10 real filter bands, filter mode switching, or fake self-oscillation is connected yet.";
 
   if (wasPanicStopped && !isOscillatorRunning && !isNoiseRunning) {
@@ -536,22 +555,22 @@ function updatePatchSummary() {
 
   if (isOscillatorRunning && isNoiseRunning) {
     patchSummaryText.textContent =
-      `Stable audio core. One quiet sawtooth oscillator and one quiet white noise source are running through one low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the master Output control set to ${outputPercent}%. ${feedbackSummary} ${safetyText} ${spectralText} ${notYetText}`;
+      `Stable audio core. One quiet sawtooth oscillator and one quiet white noise source are running through one low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the master Output control set to ${outputPercent}%. ${feedbackSummary} ${safetyText} ${feedbackCharacterText} ${spectralText} ${notYetText}`;
     return;
   }
 
   if (isOscillatorRunning) {
     patchSummaryText.textContent =
-      `Stable audio core. One quiet sawtooth oscillator is running at A3 through one low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the master Output control set to ${outputPercent}%. ${feedbackSummary} ${safetyText} ${spectralText} ${notYetText}`;
+      `Stable audio core. One quiet sawtooth oscillator is running at A3 through one low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the master Output control set to ${outputPercent}%. ${feedbackSummary} ${safetyText} ${feedbackCharacterText} ${spectralText} ${notYetText}`;
     return;
   }
 
   if (isNoiseRunning) {
     patchSummaryText.textContent =
-      `Stable audio core. One quiet white noise source is running through one low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the master Output control set to ${outputPercent}%. ${feedbackSummary} ${safetyText} ${spectralText} ${notYetText}`;
+      `Stable audio core. One quiet white noise source is running through one low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the master Output control set to ${outputPercent}%. ${feedbackSummary} ${safetyText} ${feedbackCharacterText} ${spectralText} ${notYetText}`;
     return;
   }
 
   patchSummaryText.textContent =
-    `Stable audio core with analyser meters. No sound engine running. Press Start Oscillator or Start Noise to test one quiet source. Output is set to ${outputPercent}%. ${feedbackSummary} ${safetyText} Low-pass cutoff is set to ${cutoffFrequency} Hz. Resonance is set to ${resonanceAmount}. ${spectralText} No fake self-oscillation is connected yet.`;
+    `Stable audio core with analyser meters. No sound engine running. Press Start Oscillator or Start Noise to test one quiet source. Output is set to ${outputPercent}%. ${feedbackSummary} ${safetyText} Low-pass cutoff is set to ${cutoffFrequency} Hz. Resonance is set to ${resonanceAmount}. ${feedbackCharacterText} ${spectralText} No fake self-oscillation is connected yet.`;
 }
