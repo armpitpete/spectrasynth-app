@@ -2,6 +2,8 @@ import "./styles.css";
 
 const MAX_SAFE_MASTER_GAIN = 0.35;
 const PANIC_RAMP_SECONDS = 0.02;
+const BAND_5_AUDITION_GAIN = 0.08;
+const BAND_5_AUDITION_RAMP_SECONDS = 0.035;
 const ANALYSER_FFT_SIZE = 1024;
 const ANALYSER_SMOOTHING = 0.82;
 const ANALYSER_MIN_DECIBELS = -90;
@@ -19,9 +21,9 @@ const STEREO_LEFT_DELAY_SECONDS = 0.004;
 const STEREO_RIGHT_DELAY_SECONDS = 0.009;
 const STEREO_CENTER_GAIN = 0.62;
 const STEREO_SPREAD_GAIN = 0.42;
-const SILENT_BAND_5_INDEX = 4;
-const SILENT_BAND_5_FREQUENCY = 1200;
-const SILENT_BAND_5_Q = 1.2;
+const BAND_5_INDEX = 4;
+const BAND_5_FREQUENCY = 1200;
+const BAND_5_Q = 1.2;
 
 const bands = [
   { number: 1, label: "Low", height: 28 },
@@ -43,6 +45,7 @@ const spectralBandState = bands.map((band) => ({
   isMuted: false,
   analyserLevel: 0,
   hasSilentFilterTap: band.number === 5,
+  isAuditionEnabled: false,
 }));
 
 let lastTouchedBandIndex = null;
@@ -55,8 +58,8 @@ let butteryFuzzDryGain = null;
 let butteryFuzzWetGain = null;
 let butteryFuzzMixGain = null;
 let postFuzzFilter = null;
-let silentBand5Filter = null;
-let silentBand5Gain = null;
+let band5Filter = null;
+let band5AuditionGain = null;
 let stereoCenterGain = null;
 let stereoLeftDelay = null;
 let stereoLeftPanner = null;
@@ -68,11 +71,9 @@ let masterGain = null;
 let analyser = null;
 let analyserData = null;
 let analyserAnimationFrame = null;
-
 let oscillator = null;
 let oscillatorGain = null;
 let isOscillatorRunning = false;
-
 let noiseSource = null;
 let noiseGain = null;
 let isNoiseRunning = false;
@@ -86,7 +87,7 @@ document.querySelector("#app").innerHTML = `
         <h1>SpectraSynth</h1>
         <p class="subtitle">Visible spectral instrument</p>
       </div>
-      <div class="version-pill">v0.26 stable silent Band 5 tap checkpoint</div>
+      <div class="version-pill">v0.27 Band 5 audition path</div>
     </header>
 
     <section class="control-grid">
@@ -102,79 +103,49 @@ document.querySelector("#app").innerHTML = `
 
       <section class="panel movement-panel">
         <h2>Movement</h2>
-        <label>
-          Cutoff / Brightness
-          <input id="cutoffSlider" type="range" min="0" max="100" value="63" />
-        </label>
-        <label>
-          Resonance
-          <input id="resonanceSlider" type="range" min="0.4" max="40" step="0.1" value="2" />
-        </label>
-        <label>
-          Buttery Fuzz
-          <input id="butteryFuzzSlider" type="range" min="0" max="100" value="70" />
-        </label>
-        <label>
-          Virtual Distance
-          <input type="range" min="0" max="100" value="35" />
-        </label>
-        <label>
-          Two-Moon Movement
-          <input type="range" min="0" max="100" value="60" />
-        </label>
+        <label>Cutoff / Brightness<input id="cutoffSlider" type="range" min="0" max="100" value="63" /></label>
+        <label>Resonance<input id="resonanceSlider" type="range" min="0.4" max="40" step="0.1" value="2" /></label>
+        <label>Buttery Fuzz<input id="butteryFuzzSlider" type="range" min="0" max="100" value="70" /></label>
+        <label>Virtual Distance<input type="range" min="0" max="100" value="35" /></label>
+        <label>Two-Moon Movement<input type="range" min="0" max="100" value="60" /></label>
       </section>
 
       <section class="panel effects-panel">
         <h2>Effects</h2>
-        <label>
-          Delay
-          <input type="range" min="0" max="100" value="20" />
-        </label>
-        <label>
-          Reverb
-          <input type="range" min="0" max="100" value="35" />
-        </label>
-        <label>
-          Output
-          <input id="outputSlider" type="range" min="0" max="100" value="70" />
-        </label>
+        <label>Delay<input type="range" min="0" max="100" value="20" /></label>
+        <label>Reverb<input type="range" min="0" max="100" value="35" /></label>
+        <label>Output<input id="outputSlider" type="range" min="0" max="100" value="70" /></label>
       </section>
     </section>
 
     <section class="panel spectral-panel">
       <div class="section-heading">
         <h2>Spectral Engine</h2>
-        <p>Band 5 has a stable silent internal filter tap. Faders and Mute buttons remain visual-only.</p>
+        <p>Band 5 can be auditioned at low level. Faders and Mute buttons remain visual-only.</p>
+      </div>
+
+      <div class="button-row">
+        <button id="band5AuditionButton" aria-pressed="false">Band 5 Audition: Off</button>
       </div>
 
       <div class="band-bank">
-        ${bands
-          .map(
-            (band, bandIndex) => `
-              <article class="band-strip" data-band-index="${bandIndex}">
-                <div class="band-top">
-                  <div class="band-number">${band.number}</div>
-                  <div class="band-label">${band.label}</div>
-                </div>
-
-                <div class="meter-wrap">
-                  <div class="meter">
-                    <div class="meter-fill" style="height: 0%"></div>
-                  </div>
-                </div>
-
-                <input class="band-fader" data-band-index="${bandIndex}" type="range" min="0" max="100" value="${band.height}" aria-label="${band.label} visual band value" />
-                <button class="mute-button" data-band-index="${bandIndex}" aria-pressed="false">Mute</button>
-              </article>
-            `
-          )
-          .join("")}
+        ${bands.map((band, bandIndex) => `
+          <article class="band-strip" data-band-index="${bandIndex}">
+            <div class="band-top">
+              <div class="band-number">${band.number}</div>
+              <div class="band-label">${band.label}</div>
+            </div>
+            <div class="meter-wrap"><div class="meter"><div class="meter-fill" style="height: 0%"></div></div></div>
+            <input class="band-fader" data-band-index="${bandIndex}" type="range" min="0" max="100" value="${band.height}" aria-label="${band.label} visual band value" />
+            <button class="mute-button" data-band-index="${bandIndex}" aria-pressed="false">Mute</button>
+          </article>
+        `).join("")}
       </div>
     </section>
 
     <section class="panel patch-summary">
       <h2>Plain Patch Summary</h2>
-      <p id="patchSummaryText">Stable silent Band 5 tap checkpoint. The tested v0.25 silent Band 5 tap is frozen. No sound engine running. Press Start Oscillator or Start Noise to test one quiet source. Output is set to 70%, clamped to a safe maximum. Cutoff / Brightness uses a perceptual response curve from 120 Hz to 16000 Hz. The current mapped cutoff is about 2625 Hz and shapes both before and after the fuzz stage. Resonance reaches 40 for a strong audible peak. Buttery Fuzz is set to 70% and uses rounded saturation instead of hard clipping. Band 5 Voice has a real silent bandpass filter tap at 1200 Hz with Q 1.2, routed only to an internal zero-gain path. It is not connected to master Output and does not affect sound. Faders and Mute buttons are still visual-only. Feedback is not connected in v0.26. No fake self-oscillation is connected.</p>
+      <p id="patchSummaryText">Band 5 Audition is off. The app should sound like v0.26 until audition is switched on.</p>
     </section>
   </main>
 `;
@@ -186,6 +157,7 @@ const cutoffSlider = document.querySelector("#cutoffSlider");
 const resonanceSlider = document.querySelector("#resonanceSlider");
 const butteryFuzzSlider = document.querySelector("#butteryFuzzSlider");
 const outputSlider = document.querySelector("#outputSlider");
+const band5AuditionButton = document.querySelector("#band5AuditionButton");
 const patchSummaryText = document.querySelector("#patchSummaryText");
 const meterFills = document.querySelectorAll(".meter-fill");
 const bandFaders = document.querySelectorAll(".band-fader");
@@ -210,31 +182,33 @@ noiseButton.addEventListener("click", async () => {
 });
 
 panicButton.addEventListener("click", panicStop);
-
-cutoffSlider.addEventListener("input", () => {
-  updateToneFilterFromControls();
-  updatePatchSummary();
-});
-
-resonanceSlider.addEventListener("input", () => {
-  updateToneFilterFromControls();
-  updatePatchSummary();
-});
-
+cutoffSlider.addEventListener("input", updateToneAndSummary);
+resonanceSlider.addEventListener("input", updateToneAndSummary);
 butteryFuzzSlider.addEventListener("input", () => {
   updateButteryFuzzFromSlider();
   updatePatchSummary();
 });
-
 outputSlider.addEventListener("input", () => {
   updateMasterGainFromSlider();
+  updatePatchSummary();
+});
+band5AuditionButton.addEventListener("click", async () => {
+  const band5State = spectralBandState[BAND_5_INDEX];
+  band5State.isAuditionEnabled = !band5State.isAuditionEnabled;
+  lastTouchedBandIndex = BAND_5_INDEX;
+  updateBand5AuditionButtonFromState();
+
+  if (band5State.isAuditionEnabled) {
+    await ensureAudioContext();
+  }
+
+  updateBand5AuditionGainFromState();
   updatePatchSummary();
 });
 
 bandFaders.forEach((fader) => {
   fader.addEventListener("input", () => {
     const bandIndex = Number(fader.dataset.bandIndex);
-
     spectralBandState[bandIndex].faderValue = Number(fader.value);
     lastTouchedBandIndex = bandIndex;
     updatePatchSummary();
@@ -245,13 +219,17 @@ muteButtons.forEach((button) => {
   button.addEventListener("click", () => {
     const bandIndex = Number(button.dataset.bandIndex);
     const bandState = spectralBandState[bandIndex];
-
     bandState.isMuted = !bandState.isMuted;
     lastTouchedBandIndex = bandIndex;
     updateMuteButtonFromState(button, bandState);
     updatePatchSummary();
   });
 });
+
+function updateToneAndSummary() {
+  updateToneFilterFromControls();
+  updatePatchSummary();
+}
 
 async function ensureAudioContext() {
   if (!audioContext) {
@@ -277,8 +255,6 @@ async function ensureAudioContext() {
 
   if (!toneFilter) {
     toneFilter = audioContext.createBiquadFilter();
-    toneFilter.type = "lowpass";
-
     butteryFuzzInputGain = audioContext.createGain();
     butteryFuzz = audioContext.createWaveShaper();
     butteryFuzzOutputGain = audioContext.createGain();
@@ -286,8 +262,8 @@ async function ensureAudioContext() {
     butteryFuzzWetGain = audioContext.createGain();
     butteryFuzzMixGain = audioContext.createGain();
     postFuzzFilter = audioContext.createBiquadFilter();
-    silentBand5Filter = audioContext.createBiquadFilter();
-    silentBand5Gain = audioContext.createGain();
+    band5Filter = audioContext.createBiquadFilter();
+    band5AuditionGain = audioContext.createGain();
     stereoCenterGain = audioContext.createGain();
     stereoLeftDelay = audioContext.createDelay(0.02);
     stereoLeftPanner = audioContext.createStereoPanner();
@@ -296,16 +272,17 @@ async function ensureAudioContext() {
     stereoRightPanner = audioContext.createStereoPanner();
     stereoRightGain = audioContext.createGain();
 
+    toneFilter.type = "lowpass";
     butteryFuzz.curve = createButteryFuzzCurve();
     butteryFuzz.oversample = "2x";
     butteryFuzzOutputGain.gain.setValueAtTime(FUZZ_OUTPUT_TRIM, audioContext.currentTime);
     butteryFuzzMixGain.gain.setValueAtTime(1, audioContext.currentTime);
     postFuzzFilter.type = "lowpass";
     postFuzzFilter.Q.setValueAtTime(POST_FUZZ_FILTER_Q, audioContext.currentTime);
-    silentBand5Filter.type = "bandpass";
-    silentBand5Filter.frequency.setValueAtTime(SILENT_BAND_5_FREQUENCY, audioContext.currentTime);
-    silentBand5Filter.Q.setValueAtTime(SILENT_BAND_5_Q, audioContext.currentTime);
-    silentBand5Gain.gain.setValueAtTime(0, audioContext.currentTime);
+    band5Filter.type = "bandpass";
+    band5Filter.frequency.setValueAtTime(BAND_5_FREQUENCY, audioContext.currentTime);
+    band5Filter.Q.setValueAtTime(BAND_5_Q, audioContext.currentTime);
+    band5AuditionGain.gain.setValueAtTime(0, audioContext.currentTime);
     stereoCenterGain.gain.setValueAtTime(STEREO_CENTER_GAIN, audioContext.currentTime);
     stereoLeftDelay.delayTime.setValueAtTime(STEREO_LEFT_DELAY_SECONDS, audioContext.currentTime);
     stereoLeftPanner.pan.setValueAtTime(-0.85, audioContext.currentTime);
@@ -322,8 +299,9 @@ async function ensureAudioContext() {
     butteryFuzzDryGain.connect(butteryFuzzMixGain);
     butteryFuzzWetGain.connect(butteryFuzzMixGain);
     butteryFuzzMixGain.connect(postFuzzFilter);
-    postFuzzFilter.connect(silentBand5Filter);
-    silentBand5Filter.connect(silentBand5Gain);
+    postFuzzFilter.connect(band5Filter);
+    band5Filter.connect(band5AuditionGain);
+    band5AuditionGain.connect(masterGain);
     postFuzzFilter.connect(stereoCenterGain);
     postFuzzFilter.connect(stereoLeftDelay);
     postFuzzFilter.connect(stereoRightDelay);
@@ -337,6 +315,7 @@ async function ensureAudioContext() {
 
     updateToneFilterFromControls();
     updateButteryFuzzFromSlider();
+    updateBand5AuditionGainFromState();
   }
 
   if (audioContext.state === "suspended") {
@@ -356,26 +335,19 @@ function getRoundedCutoffFrequency() {
 }
 
 function updateToneFilterFromControls() {
-  if (!toneFilter || !audioContext) {
-    return;
-  }
+  if (!toneFilter || !audioContext) return;
 
   const cutoffFrequency = getCutoffFrequencyFromSlider();
   const resonanceAmount = Number(resonanceSlider.value);
 
   toneFilter.frequency.setTargetAtTime(cutoffFrequency, audioContext.currentTime, 0.015);
   toneFilter.Q.setTargetAtTime(resonanceAmount, audioContext.currentTime, 0.015);
-
-  if (postFuzzFilter) {
-    postFuzzFilter.frequency.setTargetAtTime(cutoffFrequency, audioContext.currentTime, 0.015);
-    postFuzzFilter.Q.setTargetAtTime(POST_FUZZ_FILTER_Q, audioContext.currentTime, 0.015);
-  }
+  postFuzzFilter.frequency.setTargetAtTime(cutoffFrequency, audioContext.currentTime, 0.015);
+  postFuzzFilter.Q.setTargetAtTime(POST_FUZZ_FILTER_Q, audioContext.currentTime, 0.015);
 }
 
 function updateButteryFuzzFromSlider() {
-  if (!butteryFuzzInputGain || !butteryFuzzDryGain || !butteryFuzzWetGain || !audioContext) {
-    return;
-  }
+  if (!butteryFuzzInputGain || !audioContext) return;
 
   const fuzzAmount = Number(butteryFuzzSlider.value) / 100;
   const fuzzInputGain = FUZZ_MIN_INPUT_GAIN + fuzzAmount * (FUZZ_MAX_INPUT_GAIN - FUZZ_MIN_INPUT_GAIN);
@@ -387,21 +359,33 @@ function updateButteryFuzzFromSlider() {
   butteryFuzzWetGain.gain.setTargetAtTime(wetLevel, audioContext.currentTime, 0.015);
 }
 
+function updateBand5AuditionButtonFromState() {
+  const band5State = spectralBandState[BAND_5_INDEX];
+  band5AuditionButton.textContent = band5State.isAuditionEnabled ? "Band 5 Audition: On" : "Band 5 Audition: Off";
+  band5AuditionButton.setAttribute("aria-pressed", String(band5State.isAuditionEnabled));
+}
+
+function updateBand5AuditionGainFromState() {
+  if (!band5AuditionGain || !audioContext) return;
+
+  const band5State = spectralBandState[BAND_5_INDEX];
+  const targetGain = band5State.isAuditionEnabled ? BAND_5_AUDITION_GAIN : 0;
+
+  band5AuditionGain.gain.cancelScheduledValues(audioContext.currentTime);
+  band5AuditionGain.gain.setValueAtTime(band5AuditionGain.gain.value, audioContext.currentTime);
+  band5AuditionGain.gain.linearRampToValueAtTime(targetGain, audioContext.currentTime + BAND_5_AUDITION_RAMP_SECONDS);
+}
+
 function updateMasterGainFromSlider() {
-  if (!masterGain || !audioContext) {
-    return;
-  }
+  if (!masterGain || !audioContext) return;
 
   const sliderValue = Number(outputSlider.value) / 100;
   const safeMasterLevel = Math.min(sliderValue * MAX_SAFE_MASTER_GAIN, MAX_SAFE_MASTER_GAIN);
-
   masterGain.gain.setTargetAtTime(safeMasterLevel, audioContext.currentTime, 0.015);
 }
 
 function silenceMasterOutput() {
-  if (!masterGain || !audioContext) {
-    return;
-  }
+  if (!masterGain || !audioContext) return;
 
   masterGain.gain.cancelScheduledValues(audioContext.currentTime);
   masterGain.gain.setValueAtTime(masterGain.gain.value, audioContext.currentTime);
@@ -409,23 +393,17 @@ function silenceMasterOutput() {
 }
 
 function startAnalyserMeters() {
-  if (analyserAnimationFrame) {
-    return;
-  }
-
+  if (analyserAnimationFrame) return;
   updateAnalyserMeters();
 }
 
 function updateAnalyserMeters() {
-  if (!analyser || !analyserData || !audioContext) {
-    return;
-  }
+  if (!analyser || !analyserData || !audioContext) return;
 
   analyser.getByteFrequencyData(analyserData);
 
   meterFills.forEach((meterFill, bandIndex) => {
     const analyserBandLevel = getAnalyserBandLevel(bandIndex);
-
     spectralBandState[bandIndex].analyserLevel = analyserBandLevel;
     meterFill.style.height = `${analyserBandLevel}%`;
   });
@@ -437,17 +415,10 @@ function getAnalyserBandLevel(bandIndex) {
   const nyquistFrequency = audioContext.sampleRate / 2;
   const maxUsefulBin = Math.max(
     ANALYSER_BAND_COUNT,
-    Math.min(
-      analyserData.length,
-      Math.floor((ANALYSER_MAX_FREQUENCY / nyquistFrequency) * analyserData.length)
-    )
+    Math.min(analyserData.length, Math.floor((ANALYSER_MAX_FREQUENCY / nyquistFrequency) * analyserData.length))
   );
   const binStart = Math.floor((bandIndex / ANALYSER_BAND_COUNT) * maxUsefulBin);
-  const binEnd = Math.max(
-    binStart + 1,
-    Math.floor(((bandIndex + 1) / ANALYSER_BAND_COUNT) * maxUsefulBin)
-  );
-
+  const binEnd = Math.max(binStart + 1, Math.floor(((bandIndex + 1) / ANALYSER_BAND_COUNT) * maxUsefulBin));
   let total = 0;
   let count = 0;
 
@@ -456,11 +427,7 @@ function getAnalyserBandLevel(bandIndex) {
     count += 1;
   }
 
-  if (count === 0) {
-    return 0;
-  }
-
-  return Math.round((total / count / 255) * 100);
+  return count === 0 ? 0 : Math.round((total / count / 255) * 100);
 }
 
 function createButteryFuzzCurve() {
@@ -481,23 +448,19 @@ function createButteryFuzzCurve() {
 
 async function startOscillator() {
   const context = await ensureAudioContext();
-
   wasPanicStopped = false;
   updateMasterGainFromSlider();
   updateButteryFuzzFromSlider();
+  updateBand5AuditionGainFromState();
 
   oscillator = context.createOscillator();
   oscillatorGain = context.createGain();
-
   oscillator.type = "sawtooth";
   oscillator.frequency.setValueAtTime(220, context.currentTime);
-
   oscillatorGain.gain.setValueAtTime(0, context.currentTime);
   oscillatorGain.gain.linearRampToValueAtTime(0.08, context.currentTime + 0.05);
-
   oscillator.connect(oscillatorGain);
   oscillatorGain.connect(toneFilter);
-
   oscillator.start();
 
   isOscillatorRunning = true;
@@ -506,9 +469,7 @@ async function startOscillator() {
 }
 
 function stopOscillator(options = {}) {
-  if (!oscillator || !oscillatorGain || !audioContext) {
-    return;
-  }
+  if (!oscillator || !oscillatorGain || !audioContext) return;
 
   const { immediate = false, updateSummary = true } = options;
   const rampSeconds = immediate ? PANIC_RAMP_SECONDS : 0.05;
@@ -521,45 +482,37 @@ function stopOscillator(options = {}) {
   try {
     oscillator.stop(stopTime);
   } catch {
-    // The oscillator may already be stopping. Ignore duplicate stop attempts.
+    // Ignore duplicate stop attempts.
   }
 
   oscillator.onended = () => {
     oscillator.disconnect();
     oscillatorGain.disconnect();
-
     oscillator = null;
     oscillatorGain = null;
   };
 
   isOscillatorRunning = false;
   oscillatorButton.textContent = "Start Oscillator";
-
-  if (updateSummary) {
-    updatePatchSummary();
-  }
+  if (updateSummary) updatePatchSummary();
 }
 
 async function startNoise() {
   const context = await ensureAudioContext();
   const noiseBuffer = createWhiteNoiseBuffer(context);
-
   wasPanicStopped = false;
   updateMasterGainFromSlider();
   updateButteryFuzzFromSlider();
+  updateBand5AuditionGainFromState();
 
   noiseSource = context.createBufferSource();
   noiseGain = context.createGain();
-
   noiseSource.buffer = noiseBuffer;
   noiseSource.loop = true;
-
   noiseGain.gain.setValueAtTime(0, context.currentTime);
   noiseGain.gain.linearRampToValueAtTime(0.05, context.currentTime + 0.05);
-
   noiseSource.connect(noiseGain);
   noiseGain.connect(toneFilter);
-
   noiseSource.start();
 
   isNoiseRunning = true;
@@ -568,9 +521,7 @@ async function startNoise() {
 }
 
 function stopNoise(options = {}) {
-  if (!noiseSource || !noiseGain || !audioContext) {
-    return;
-  }
+  if (!noiseSource || !noiseGain || !audioContext) return;
 
   const { immediate = false, updateSummary = true } = options;
   const rampSeconds = immediate ? PANIC_RAMP_SECONDS : 0.05;
@@ -583,46 +534,35 @@ function stopNoise(options = {}) {
   try {
     noiseSource.stop(stopTime);
   } catch {
-    // The noise source may already be stopping. Ignore duplicate stop attempts.
+    // Ignore duplicate stop attempts.
   }
 
   noiseSource.onended = () => {
     noiseSource.disconnect();
     noiseGain.disconnect();
-
     noiseSource = null;
     noiseGain = null;
   };
 
   isNoiseRunning = false;
   noiseButton.textContent = "Start Noise";
-
-  if (updateSummary) {
-    updatePatchSummary();
-  }
+  if (updateSummary) updatePatchSummary();
 }
 
 function panicStop() {
   wasPanicStopped = true;
-
-  if (audioContext && masterGain) {
-    silenceMasterOutput();
-  }
-
+  silenceMasterOutput();
   stopOscillator({ immediate: true, updateSummary: false });
   stopNoise({ immediate: true, updateSummary: false });
-
   oscillatorButton.textContent = "Start Oscillator";
   noiseButton.textContent = "Start Noise";
   isOscillatorRunning = false;
   isNoiseRunning = false;
-
   updatePatchSummary();
 }
 
 function createWhiteNoiseBuffer(context) {
-  const durationSeconds = 1;
-  const sampleCount = context.sampleRate * durationSeconds;
+  const sampleCount = context.sampleRate;
   const buffer = context.createBuffer(1, sampleCount, context.sampleRate);
   const channelData = buffer.getChannelData(0);
 
@@ -641,74 +581,46 @@ function updateMuteButtonFromState(button, bandState) {
 
 function getFuzzSummaryText() {
   const fuzzPercent = Number(butteryFuzzSlider.value);
-
-  if (fuzzPercent <= 0) {
-    return "Buttery Fuzz is off.";
-  }
+  if (fuzzPercent <= 0) return "Buttery Fuzz is off.";
 
   const fuzzAmount = fuzzPercent / 100;
   const fuzzInputGain = FUZZ_MIN_INPUT_GAIN + fuzzAmount * (FUZZ_MAX_INPUT_GAIN - FUZZ_MIN_INPUT_GAIN);
-
-  return `Buttery Fuzz is set to ${fuzzPercent}%, with ${fuzzInputGain.toFixed(2)}x input drive, rounded saturation, dry blend kept in the sound, post-fuzz cutoff shaping, and true left/right stereo spread.`;
+  return `Buttery Fuzz is set to ${fuzzPercent}%, with ${fuzzInputGain.toFixed(2)}x input drive.`;
 }
 
-function getSilentBand5TapSummaryText() {
-  const bandState = spectralBandState[SILENT_BAND_5_INDEX];
-
-  if (!bandState?.hasSilentFilterTap) {
-    return "No silent spectral filter tap is active.";
-  }
-
-  return `The tested silent Band 5 tap is frozen. Band 5 ${bandState.label} has a real silent bandpass filter tap at ${SILENT_BAND_5_FREQUENCY} Hz with Q ${SILENT_BAND_5_Q}. It is routed only to an internal zero-gain path and does not affect sound.`;
+function getBand5AuditionSummaryText() {
+  const bandState = spectralBandState[BAND_5_INDEX];
+  return bandState.isAuditionEnabled
+    ? `Band 5 Audition is on at low gain ${BAND_5_AUDITION_GAIN}.`
+    : "Band 5 Audition is off, so the sound should match v0.26.";
 }
 
 function getSpectralBandSummaryText() {
   const mutedBands = spectralBandState.filter((bandState) => bandState.isMuted);
   const mutedSummary = mutedBands.length === 0
     ? "No bands are marked muted."
-    : `${mutedBands.length} visual band${mutedBands.length === 1 ? " is" : "s are"} marked muted: ${mutedBands.map((bandState) => bandState.label).join(", ")}.`;
+    : `${mutedBands.length} visual band${mutedBands.length === 1 ? " is" : "s are"} marked muted.`;
   const lastTouchedSummary = lastTouchedBandIndex === null
-    ? "No spectral fader or Mute button has been moved yet."
-    : `Last touched band: ${spectralBandState[lastTouchedBandIndex].label} at ${spectralBandState[lastTouchedBandIndex].faderValue}% visual value, analyser level ${spectralBandState[lastTouchedBandIndex].analyserLevel}%.`;
+    ? "No spectral control has been moved yet."
+    : `Last touched band: ${spectralBandState[lastTouchedBandIndex].label}.`;
 
-  return `The 10 spectral bands store fader value, muted state, analyser level, and stable Band 5 silent filter-tap state. Faders and Mute buttons remain visual-only and do not affect sound. ${getSilentBand5TapSummaryText()} ${mutedSummary} ${lastTouchedSummary}`;
+  return `Faders and Mute buttons remain visual-only. ${getBand5AuditionSummaryText()} ${mutedSummary} ${lastTouchedSummary}`;
 }
 
 function updatePatchSummary() {
   const outputPercent = outputSlider.value;
   const cutoffFrequency = getRoundedCutoffFrequency();
   const resonanceAmount = resonanceSlider.value;
-  const fuzzSummary = getFuzzSummaryText();
-  const spectralStateText = getSpectralBandSummaryText();
-  const checkpointText = "The tested v0.25 silent Band 5 tap is frozen in this v0.26 checkpoint.";
-  const safetyText = `Output is clamped to a safe maximum gain of ${MAX_SAFE_MASTER_GAIN}.`;
-  const cutoffText = `Cutoff / Brightness uses a perceptual slider curve from ${CUTOFF_MIN_FREQUENCY} Hz to ${CUTOFF_MAX_FREQUENCY} Hz and is currently mapped to ${cutoffFrequency} Hz.`;
-  const notYetText = "No audible Band 5 filtering, all-10-band filter bank, feedback loop, vocoder, delay/reverb effects, MIDI, microphone, sensors, band-fader audio behaviour, or fake self-oscillation is connected yet.";
-
-  if (wasPanicStopped && !isOscillatorRunning && !isNoiseRunning) {
-    patchSummaryText.textContent =
-      `Panic Stop used. Oscillator and noise are stopped, and output has been silenced. ${checkpointText} The analyser meters will fall as the output reaches silence. Press Start Oscillator or Start Noise to resume normal use. ${fuzzSummary} ${safetyText} ${cutoffText} Resonance is set to ${resonanceAmount}. ${spectralStateText} ${notYetText}`;
-    return;
-  }
-
-  if (isOscillatorRunning && isNoiseRunning) {
-    patchSummaryText.textContent =
-      `One quiet sawtooth oscillator and one quiet white noise source are running through one pre-fuzz low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the Buttery Fuzz stage, then through a post-fuzz low-pass filter that follows Cutoff, then through the unchanged master Output path set to ${outputPercent}%. ${checkpointText} ${fuzzSummary} ${safetyText} ${cutoffText} ${spectralStateText} ${notYetText}`;
-    return;
-  }
-
-  if (isOscillatorRunning) {
-    patchSummaryText.textContent =
-      `One quiet sawtooth oscillator is running at A3 through one pre-fuzz low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the Buttery Fuzz stage, then through a post-fuzz low-pass filter that follows Cutoff, then through the unchanged master Output path set to ${outputPercent}%. ${checkpointText} ${fuzzSummary} ${safetyText} ${cutoffText} ${spectralStateText} ${notYetText}`;
-    return;
-  }
-
-  if (isNoiseRunning) {
-    patchSummaryText.textContent =
-      `One quiet white noise source is running through one pre-fuzz low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the Buttery Fuzz stage, then through a post-fuzz low-pass filter that follows Cutoff, then through the unchanged master Output path set to ${outputPercent}%. ${checkpointText} ${fuzzSummary} ${safetyText} ${cutoffText} ${spectralStateText} ${notYetText}`;
-    return;
-  }
+  const runningText = isOscillatorRunning && isNoiseRunning
+    ? "Oscillator and noise are running."
+    : isOscillatorRunning
+      ? "Oscillator is running."
+      : isNoiseRunning
+        ? "Noise is running."
+        : wasPanicStopped
+          ? "Panic Stop used. Output has been silenced."
+          : "No sound engine running.";
 
   patchSummaryText.textContent =
-    `Stable silent Band 5 tap checkpoint. ${checkpointText} No sound engine running. Press Start Oscillator or Start Noise to test one quiet source. Output is set to ${outputPercent}%. ${fuzzSummary} ${safetyText} ${cutoffText} Resonance is set to ${resonanceAmount}. ${spectralStateText} ${notYetText}`;
+    `${runningText} Output is set to ${outputPercent}%. Cutoff maps to ${cutoffFrequency} Hz. Resonance is set to ${resonanceAmount}. ${getFuzzSummaryText()} ${getSpectralBandSummaryText()} No full filter bank, feedback, vocoder, microphone, MIDI, presets, or sensors are connected yet.`;
 }
