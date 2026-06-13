@@ -99,12 +99,12 @@ Feedback should add bite, thickness, and movement. It should not run away or bec
 
 Adds a subtle fixed fuzz stage after the low-pass filter and before the master Output control.
 
-The current fuzz is not a separate knob yet. It uses fixed internal settings:
+The current fuzz is not a separate knob yet. It uses safer fixed internal settings after the first test failed around 30% Feedback:
 
 ```text
-fuzz input gain = 4.0
-fuzz curve drive = 1.6
-fuzz output trim = 0.25
+fuzz input gain = 2.4
+fuzz curve drive = 1.5
+fuzz output trim = 0.2
 ```
 
 The goal is a warmer, fuzzier edge without harsh clipping and without breaking the feedback safety.
@@ -140,7 +140,7 @@ Use this checklist after pulling v0.20.
 - noise has character but does not become harsh white fizz
 - Cutoff / Brightness still reaches 16000 Hz
 - Output still controls level
-- feedback still works
+- feedback still works past 30%
 - buttery feedback character remains
 - full Cutoff + full Resonance + full Feedback does not run away
 - Panic Stop silences everything
@@ -180,4 +180,6 @@ Purpose: let the filter open properly before adding fuzz distortion in v0.20.
 
 Added a fixed buttery fuzz stage after the low-pass filter and before master Output.
 
-Purpose: give the oscillator and noise a warmer fuzz edge without adding another visible control yet.
+First test failed around 30% Feedback, so the fuzz gain structure was reduced before merge.
+
+Purpose: give the oscillator and noise a warmer fuzz edge without adding another visible control yet, while keeping feedback safe.
