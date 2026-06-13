@@ -42,7 +42,7 @@ document.querySelector("#app").innerHTML = `
         <h1>SpectraSynth</h1>
         <p class="subtitle">Visible spectral instrument</p>
       </div>
-      <div class="version-pill">v0.12 protected feedback</div>
+      <div class="version-pill">v0.13 stable audio core</div>
     </header>
 
     <section class="control-grid">
@@ -130,7 +130,7 @@ document.querySelector("#app").innerHTML = `
 
     <section class="panel patch-summary">
       <h2>Plain Patch Summary</h2>
-      <p id="patchSummaryText">No sound engine running. Press Start Oscillator or Start Noise to test one quiet source. Output is set to 70%, clamped to a safe maximum. Low-pass cutoff is set to 2600 Hz. Resonance is set to 0.7. Feedback is off.</p>
+      <p id="patchSummaryText">Stable audio core checkpoint. No sound engine running. Press Start Oscillator or Start Noise to test one quiet source. Output is set to 70%, clamped to a safe maximum. Low-pass cutoff is set to 2600 Hz. Resonance is set to 0.7. Feedback is off. No fake self-oscillation is connected.</p>
     </section>
   </main>
 `;
@@ -475,22 +475,22 @@ function updatePatchSummary() {
 
   if (isOscillatorRunning && isNoiseRunning) {
     patchSummaryText.textContent =
-      `One quiet sawtooth oscillator and one quiet white noise source are running through one low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the master Output control set to ${outputPercent}%. ${feedbackSummary} ${safetyText} The spectral faders are visual only. No analyser, vocoder, effects, MIDI, microphone, 10 real filter bands, filter mode switching, sensors, or fake self-oscillation is connected yet.`;
+      `Stable audio core. One quiet sawtooth oscillator and one quiet white noise source are running through one low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the master Output control set to ${outputPercent}%. ${feedbackSummary} ${safetyText} The spectral faders are visual only. No analyser, vocoder, effects, MIDI, microphone, 10 real filter bands, filter mode switching, sensors, or fake self-oscillation is connected yet.`;
     return;
   }
 
   if (isOscillatorRunning) {
     patchSummaryText.textContent =
-      `One quiet sawtooth oscillator is running at A3 through one low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the master Output control set to ${outputPercent}%. ${feedbackSummary} ${safetyText} The spectral faders are visual only. No analyser, vocoder, effects, MIDI, microphone, 10 real filter bands, filter mode switching, sensors, or fake self-oscillation is connected yet.`;
+      `Stable audio core. One quiet sawtooth oscillator is running at A3 through one low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the master Output control set to ${outputPercent}%. ${feedbackSummary} ${safetyText} The spectral faders are visual only. No analyser, vocoder, effects, MIDI, microphone, 10 real filter bands, filter mode switching, sensors, or fake self-oscillation is connected yet.`;
     return;
   }
 
   if (isNoiseRunning) {
     patchSummaryText.textContent =
-      `One quiet white noise source is running through one low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the master Output control set to ${outputPercent}%. ${feedbackSummary} ${safetyText} The spectral faders are visual only. No analyser, vocoder, effects, MIDI, microphone, 10 real filter bands, filter mode switching, sensors, or fake self-oscillation is connected yet.`;
+      `Stable audio core. One quiet white noise source is running through one low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the master Output control set to ${outputPercent}%. ${feedbackSummary} ${safetyText} The spectral faders are visual only. No analyser, vocoder, effects, MIDI, microphone, 10 real filter bands, filter mode switching, sensors, or fake self-oscillation is connected yet.`;
     return;
   }
 
   patchSummaryText.textContent =
-    `No sound engine running. Press Start Oscillator or Start Noise to test one quiet source. Output is set to ${outputPercent}%. ${feedbackSummary} ${safetyText} Low-pass cutoff is set to ${cutoffFrequency} Hz. Resonance is set to ${resonanceAmount}. The spectral faders are visual only. No fake self-oscillation is connected yet.`;
+    `Stable audio core checkpoint. No sound engine running. Press Start Oscillator or Start Noise to test one quiet source. Output is set to ${outputPercent}%. ${feedbackSummary} ${safetyText} Low-pass cutoff is set to ${cutoffFrequency} Hz. Resonance is set to ${resonanceAmount}. The spectral faders are visual only. No fake self-oscillation is connected yet.`;
 }
