@@ -52,7 +52,7 @@ document.querySelector("#app").innerHTML = `
         <h1>SpectraSynth</h1>
         <p class="subtitle">Visible spectral instrument</p>
       </div>
-      <div class="version-pill">v0.17 buttery feedback character</div>
+      <div class="version-pill">v0.19 extended cutoff brightness</div>
     </header>
 
     <section class="control-grid">
@@ -70,7 +70,7 @@ document.querySelector("#app").innerHTML = `
         <h2>Movement</h2>
         <label>
           Cutoff / Brightness
-          <input id="cutoffSlider" type="range" min="120" max="8000" value="2600" />
+          <input id="cutoffSlider" type="range" min="120" max="16000" value="2600" />
         </label>
         <label>
           Resonance
@@ -140,7 +140,7 @@ document.querySelector("#app").innerHTML = `
 
     <section class="panel patch-summary">
       <h2>Plain Patch Summary</h2>
-      <p id="patchSummaryText">Stable audio core with analyser meters. No sound engine running. Press Start Oscillator or Start Noise to test one quiet source. Output is set to 70%, clamped to a safe maximum. Low-pass cutoff is set to 2600 Hz. Resonance is set to 0.7. Feedback is off. The feedback loop now includes gentle internal soft saturation. The spectral meters listen after the master Output control. The spectral faders are visual only. No fake self-oscillation is connected.</p>
+      <p id="patchSummaryText">Stable audio core with analyser meters. No sound engine running. Press Start Oscillator or Start Noise to test one quiet source. Output is set to 70%, clamped to a safe maximum. Low-pass cutoff is set to 2600 Hz and can now open up to 16000 Hz. Resonance is set to 0.7. Feedback is off. The feedback loop now includes gentle internal soft saturation. The spectral meters listen after the master Output control. The spectral faders are visual only. No fake self-oscillation is connected.</p>
     </section>
   </main>
 `;
