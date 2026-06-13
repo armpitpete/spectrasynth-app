@@ -17,7 +17,7 @@ Current sound sources:
 Current sound path:
 
 ```text
-oscillator / noise → low-pass filter → fixed buttery fuzz → master Output → analyser meters / speakers
+oscillator / noise → low-pass filter → Buttery Fuzz mix → small stereo-width branch → master Output → analyser meters / speakers
 ```
 
 Feedback is parked in v0.20.
@@ -33,8 +33,11 @@ SpectraSynth is being built cautiously because browser audio can become loud or 
 Current safety rules:
 
 - master Output is clamped
-- the main fuzz stage has fixed gain and output trim
-- Feedback is parked and disabled in v0.20
+- Buttery Fuzz has a controlled slider
+- the fuzz stage uses internal input-drive limits
+- the fuzz output is trimmed before the mix
+- a small stereo-width branch is added after the fuzz mix
+- Feedback is not connected in v0.20
 - Panic Stop silences the app quickly
 - no fake self-oscillation is connected
 
@@ -45,7 +48,7 @@ Current safety rules:
 3. Raise **Output** if needed.
 4. Move **Cutoff / Brightness**.
 5. Move **Resonance** carefully.
-6. Listen to the fixed buttery fuzz stage.
+6. Move **Buttery Fuzz**.
 7. Press **Panic Stop** if the sound feels too strong.
 
 ## Controls
@@ -82,27 +85,43 @@ Emphasises the filter cutoff point.
 
 Higher resonance can make the sound sharper and more ring-like. Use it carefully with high cutoff.
 
+### Buttery Fuzz
+
+Controls the fuzz amount.
+
+At 0%, the fuzz path is effectively off and the dry filtered sound dominates.
+
+As the control rises, the input drive into the fuzz stage increases and more fuzz signal is blended into the output.
+
+The current internal limits are:
+
+```text
+fuzz input gain range = 1.0 to 3.2
+fuzz curve drive = 1.5
+fuzz output trim = 0.22
+```
+
+The goal is a warmer, fuzzier edge without harsh clipping.
+
+### Stereo width
+
+A small stereo-width branch is active after the fuzz mix.
+
+It uses a very short offset branch to make the sound feel slightly wider. It is not a delay effect control and should stay subtle.
+
+Current internal settings:
+
+```text
+stereo spread delay = 0.006 seconds
+stereo center gain = 0.78
+stereo spread gain = 0.22
+```
+
 ### Feedback
 
 Feedback is parked in v0.20.
 
-The Feedback slider is disabled and stays at 0.
-
-This version is only for judging the fixed buttery fuzz tone.
-
-### Fixed buttery fuzz
-
-Adds a fixed fuzz stage after the low-pass filter and before the master Output control.
-
-The current fuzz is not a separate knob yet. It uses fixed internal settings:
-
-```text
-fuzz input gain = 2.4
-fuzz curve drive = 1.5
-fuzz output trim = 0.2
-```
-
-The goal is a warmer, fuzzier edge without harsh clipping.
+There is no Feedback slider in this version. Feedback should not be tested until the fuzz tone is good.
 
 ### Output
 
@@ -131,10 +150,11 @@ Use this checklist after pulling v0.20.
 - header says `v0.20 buttery fuzz distortion`
 - oscillator starts and stops
 - noise starts and stops
-- oscillator has a warmer or fuzzier edge
+- Buttery Fuzz slider works from 0 to 100
+- oscillator has a warmer or fuzzier edge as Buttery Fuzz rises
 - noise has character but does not become harsh white fizz
+- stereo image feels slightly wider than a plain mono centre signal
 - Cutoff / Brightness still reaches 16000 Hz
-- Feedback slider is disabled and stays at 0
 - Output still controls level
 - Panic Stop silences everything
 - analyser meters still respond
@@ -146,7 +166,6 @@ Do not test feedback in v0.20. Feedback is parked until the fuzz tone is good.
 
 Not built yet:
 
-- fuzz amount control
 - active feedback with fuzz
 - microphone input
 - vocoder mode
@@ -174,8 +193,10 @@ Purpose: let the filter open properly before adding fuzz distortion in v0.20.
 
 ### v0.20 — Buttery fuzz distortion
 
-Added a fixed buttery fuzz stage after the low-pass filter and before master Output.
+Added a Buttery Fuzz amount control after the low-pass filter.
+
+Added a small stereo-width branch after the fuzz mix.
 
 Feedback is parked in this version. The v0.20 target is good fuzz only.
 
-Purpose: give the oscillator and noise a warmer fuzz edge without adding another visible control yet.
+Purpose: give the oscillator and noise a warmer fuzz edge before reconnecting feedback later.
