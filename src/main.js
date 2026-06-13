@@ -14,6 +14,7 @@ const bands = [
 ];
 
 let audioContext = null;
+let toneFilter = null;
 let masterGain = null;
 
 let oscillator = null;
@@ -32,7 +33,7 @@ document.querySelector("#app").innerHTML = `
         <h1>SpectraSynth</h1>
         <p class="subtitle">Visible spectral instrument</p>
       </div>
-      <div class="version-pill">v0.7 visual bands</div>
+      <div class="version-pill">v0.8 low-pass filter</div>
     </header>
 
     <section class="control-grid">
@@ -48,8 +49,8 @@ document.querySelector("#app").innerHTML = `
       <section class="panel movement-panel">
         <h2>Movement</h2>
         <label>
-          Spectral Shift
-          <input type="range" min="0" max="100" value="50" />
+          Cutoff / Brightness
+          <input id="cutoffSlider" type="range" min="120" max="8000" value="2600" />
         </label>
         <label>
           Virtual Distance
@@ -111,13 +112,14 @@ document.querySelector("#app").innerHTML = `
 
     <section class="panel patch-summary">
       <h2>Plain Patch Summary</h2>
-      <p id="patchSummaryText">No sound engine running. Press Start Oscillator or Start Noise to test one quiet source. Output is set to 70%.</p>
+      <p id="patchSummaryText">No sound engine running. Press Start Oscillator or Start Noise to test one quiet source. Output is set to 70%. Low-pass cutoff is set to 2600 Hz.</p>
     </section>
   </main>
 `;
 
 const oscillatorButton = document.querySelector("#oscillatorButton");
 const noiseButton = document.querySelector("#noiseButton");
+const cutoffSlider = document.querySelector("#cutoffSlider");
 const outputSlider = document.querySelector("#outputSlider");
 const patchSummaryText = document.querySelector("#patchSummaryText");
 const bandFaders = document.querySelectorAll(".band-fader");
@@ -138,6 +140,11 @@ noiseButton.addEventListener("click", async () => {
   }
 
   await startNoise();
+});
+
+cutoffSlider.addEventListener("input", () => {
+  updateToneFilterFromSlider();
+  updatePatchSummary();
 });
 
 outputSlider.addEventListener("input", () => {
@@ -162,11 +169,28 @@ async function ensureAudioContext() {
     updateMasterGainFromSlider();
   }
 
+  if (!toneFilter) {
+    toneFilter = audioContext.createBiquadFilter();
+    toneFilter.type = "lowpass";
+    toneFilter.Q.setValueAtTime(0.7, audioContext.currentTime);
+    toneFilter.connect(masterGain);
+    updateToneFilterFromSlider();
+  }
+
   if (audioContext.state === "suspended") {
     await audioContext.resume();
   }
 
   return audioContext;
+}
+
+function updateToneFilterFromSlider() {
+  if (!toneFilter || !audioContext) {
+    return;
+  }
+
+  const cutoffFrequency = Number(cutoffSlider.value);
+  toneFilter.frequency.setTargetAtTime(cutoffFrequency, audioContext.currentTime, 0.015);
 }
 
 function updateMasterGainFromSlider() {
@@ -200,7 +224,7 @@ async function startOscillator() {
   oscillatorGain.gain.linearRampToValueAtTime(0.04, context.currentTime + 0.05);
 
   oscillator.connect(oscillatorGain);
-  oscillatorGain.connect(masterGain);
+  oscillatorGain.connect(toneFilter);
 
   oscillator.start();
 
@@ -249,7 +273,7 @@ async function startNoise() {
   noiseGain.gain.linearRampToValueAtTime(0.025, context.currentTime + 0.05);
 
   noiseSource.connect(noiseGain);
-  noiseGain.connect(masterGain);
+  noiseGain.connect(toneFilter);
 
   noiseSource.start();
 
@@ -299,25 +323,26 @@ function createWhiteNoiseBuffer(context) {
 
 function updatePatchSummary() {
   const outputPercent = outputSlider.value;
+  const cutoffFrequency = cutoffSlider.value;
 
   if (isOscillatorRunning && isNoiseRunning) {
     patchSummaryText.textContent =
-      `One quiet sawtooth oscillator and one quiet white noise source are running through the master Output control, currently set to ${outputPercent}%. The spectral faders are visual only. No analyser, vocoder, effects, MIDI, microphone, filters, or sensors are connected yet.`;
+      `One quiet sawtooth oscillator and one quiet white noise source are running through one low-pass filter set to ${cutoffFrequency} Hz, then through the master Output control set to ${outputPercent}%. The spectral faders are visual only. No analyser, vocoder, effects, MIDI, microphone, resonance, 10 real filter bands, or sensors are connected yet.`;
     return;
   }
 
   if (isOscillatorRunning) {
     patchSummaryText.textContent =
-      `One quiet sawtooth oscillator is running at A3 through the master Output control, currently set to ${outputPercent}%. The spectral faders are visual only. No analyser, vocoder, effects, MIDI, microphone, filters, or sensors are connected yet.`;
+      `One quiet sawtooth oscillator is running at A3 through one low-pass filter set to ${cutoffFrequency} Hz, then through the master Output control set to ${outputPercent}%. The spectral faders are visual only. No analyser, vocoder, effects, MIDI, microphone, resonance, 10 real filter bands, or sensors are connected yet.`;
     return;
   }
 
   if (isNoiseRunning) {
     patchSummaryText.textContent =
-      `One quiet white noise source is running through the master Output control, currently set to ${outputPercent}%. The spectral faders are visual only. No analyser, vocoder, effects, MIDI, microphone, filters, or sensors are connected yet.`;
+      `One quiet white noise source is running through one low-pass filter set to ${cutoffFrequency} Hz, then through the master Output control set to ${outputPercent}%. The spectral faders are visual only. No analyser, vocoder, effects, MIDI, microphone, resonance, 10 real filter bands, or sensors are connected yet.`;
     return;
   }
 
   patchSummaryText.textContent =
-    `No sound engine running. Press Start Oscillator or Start Noise to test one quiet source. Output is set to ${outputPercent}%. The spectral faders are visual only.`;
+    `No sound engine running. Press Start Oscillator or Start Noise to test one quiet source. Output is set to ${outputPercent}%. Low-pass cutoff is set to ${cutoffFrequency} Hz. The spectral faders are visual only.`;
 }
