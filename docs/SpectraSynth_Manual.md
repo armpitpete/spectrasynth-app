@@ -20,11 +20,9 @@ Current sound path:
 oscillator / noise → low-pass filter → fixed buttery fuzz → master Output → analyser meters / speakers
 ```
 
-The feedback path is separate and protected:
+Feedback is parked in v0.20.
 
-```text
-filter output → short feedback delay → soft saturation → feedback gain → back into filter
-```
+There is no active feedback loop in this version. The previous feedback work is not deleted as a design direction, but it is not part of the v0.20 fuzz test.
 
 The 10 spectral faders are still visual-only. They do not shape the sound yet.
 
@@ -35,11 +33,8 @@ SpectraSynth is being built cautiously because browser audio can become loud or 
 Current safety rules:
 
 - master Output is clamped
-- feedback is capped
-- feedback is shaped so it comes in more gradually
-- feedback passes through a very short delay
-- feedback includes gentle soft saturation
 - the main fuzz stage has fixed gain and output trim
+- Feedback is parked and disabled in v0.20
 - Panic Stop silences the app quickly
 - no fake self-oscillation is connected
 
@@ -50,7 +45,7 @@ Current safety rules:
 3. Raise **Output** if needed.
 4. Move **Cutoff / Brightness**.
 5. Move **Resonance** carefully.
-6. Raise **Feedback** slowly.
+6. Listen to the fixed buttery fuzz stage.
 7. Press **Panic Stop** if the sound feels too strong.
 
 ## Controls
@@ -59,17 +54,17 @@ Current safety rules:
 
 Starts one sawtooth oscillator at A3.
 
-This is the simplest tone source. Use it when checking pitch, filter movement, feedback character, and fuzz behaviour.
+This is the simplest tone source. Use it when checking pitch, filter movement, and fuzz behaviour.
 
 ### Start Noise
 
 Starts one white noise source.
 
-Noise is useful because it shows the whole filter shape clearly. It also reveals when feedback, fuzz, or filtering becomes too harsh.
+Noise is useful because it shows the whole filter shape clearly. It also reveals when fuzz or filtering becomes too harsh.
 
 ### Panic Stop
 
-Silences oscillator, noise, feedback, and output quickly.
+Silences oscillator, noise, and output quickly.
 
 Use it whenever the sound feels too loud, too sharp, or unstable.
 
@@ -85,21 +80,21 @@ This means the filter can now open much brighter than before. That matters becau
 
 Emphasises the filter cutoff point.
 
-Higher resonance can make the sound sharper and more ring-like. Use it carefully with high cutoff and feedback.
+Higher resonance can make the sound sharper and more ring-like. Use it carefully with high cutoff.
 
 ### Feedback
 
-Routes part of the filter output back into the filter.
+Feedback is parked in v0.20.
 
-The feedback is protected. It is capped, delayed, shaped, and softly saturated inside the loop.
+The Feedback slider is disabled and stays at 0.
 
-Feedback should add bite, thickness, and movement. It should not run away or become uncontrollable.
+This version is only for judging the fixed buttery fuzz tone.
 
 ### Fixed buttery fuzz
 
-Adds a subtle fixed fuzz stage after the low-pass filter and before the master Output control.
+Adds a fixed fuzz stage after the low-pass filter and before the master Output control.
 
-The current fuzz is not a separate knob yet. It uses safer fixed internal settings after the first test failed around 30% Feedback:
+The current fuzz is not a separate knob yet. It uses fixed internal settings:
 
 ```text
 fuzz input gain = 2.4
@@ -107,7 +102,7 @@ fuzz curve drive = 1.5
 fuzz output trim = 0.2
 ```
 
-The goal is a warmer, fuzzier edge without harsh clipping and without breaking the feedback safety.
+The goal is a warmer, fuzzier edge without harsh clipping.
 
 ### Output
 
@@ -139,19 +134,20 @@ Use this checklist after pulling v0.20.
 - oscillator has a warmer or fuzzier edge
 - noise has character but does not become harsh white fizz
 - Cutoff / Brightness still reaches 16000 Hz
+- Feedback slider is disabled and stays at 0
 - Output still controls level
-- feedback still works past 30%
-- buttery feedback character remains
-- full Cutoff + full Resonance + full Feedback does not run away
 - Panic Stop silences everything
 - analyser meters still respond
 - band faders remain visual-only
+
+Do not test feedback in v0.20. Feedback is parked until the fuzz tone is good.
 
 ## What waits for later
 
 Not built yet:
 
 - fuzz amount control
+- active feedback with fuzz
 - microphone input
 - vocoder mode
 - MIDI
@@ -180,6 +176,6 @@ Purpose: let the filter open properly before adding fuzz distortion in v0.20.
 
 Added a fixed buttery fuzz stage after the low-pass filter and before master Output.
 
-First test failed around 30% Feedback, so the fuzz gain structure was reduced before merge.
+Feedback is parked in this version. The v0.20 target is good fuzz only.
 
-Purpose: give the oscillator and noise a warmer fuzz edge without adding another visible control yet, while keeping feedback safe.
+Purpose: give the oscillator and noise a warmer fuzz edge without adding another visible control yet.
