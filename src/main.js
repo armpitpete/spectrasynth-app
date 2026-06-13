@@ -1,7 +1,8 @@
 import "./styles.css";
 
 const MAX_SAFE_MASTER_GAIN = 0.35;
-const MAX_SAFE_FEEDBACK_GAIN = 0.45;
+const MAX_SAFE_FEEDBACK_GAIN = 0.5;
+const FEEDBACK_CURVE_EXPONENT = 0.35;
 const FEEDBACK_DELAY_SECONDS = 0.018;
 const PANIC_RAMP_SECONDS = 0.02;
 
@@ -246,7 +247,8 @@ function updateFeedbackFromSlider() {
   }
 
   const sliderValue = Number(feedbackSlider.value) / 100;
-  const safeFeedbackLevel = Math.min(sliderValue * MAX_SAFE_FEEDBACK_GAIN, MAX_SAFE_FEEDBACK_GAIN);
+  const shapedFeedbackValue = sliderValue === 0 ? 0 : Math.pow(sliderValue, FEEDBACK_CURVE_EXPONENT);
+  const safeFeedbackLevel = Math.min(shapedFeedbackValue * MAX_SAFE_FEEDBACK_GAIN, MAX_SAFE_FEEDBACK_GAIN);
 
   feedbackGain.gain.setTargetAtTime(safeFeedbackLevel, audioContext.currentTime, 0.02);
 }
@@ -455,7 +457,7 @@ function getFeedbackSummaryText() {
     return "Feedback is off.";
   }
 
-  return `Protected feedback is active at ${feedbackPercent}%, capped to ${MAX_SAFE_FEEDBACK_GAIN} gain and routed through a ${FEEDBACK_DELAY_SECONDS}s delay.`;
+  return `Protected feedback is active at ${feedbackPercent}%, shaped for earlier response, capped to ${MAX_SAFE_FEEDBACK_GAIN} gain and routed through a ${FEEDBACK_DELAY_SECONDS}s delay.`;
 }
 
 function updatePatchSummary() {
