@@ -203,6 +203,12 @@ input[type="range"] {
   font-size: 0.78rem;
 }
 
+.mute-button.is-muted {
+  border-color: rgba(255, 206, 120, 0.6);
+  background: rgba(255, 161, 64, 0.2);
+  color: #ffe0b0;
+}
+
 .patch-summary p {
   margin-bottom: 0;
   color: #c8d4e2;
