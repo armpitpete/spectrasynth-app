@@ -17,7 +17,7 @@ Current sound sources:
 Current sound path:
 
 ```text
-oscillator / noise → low-pass filter → Buttery Fuzz mix → small stereo-width branch → master Output → analyser meters / speakers
+oscillator / noise → low-pass filter → stronger Buttery Fuzz mix → true left/right stereo spread → master Output → analyser meters / speakers
 ```
 
 Feedback is parked in v0.20.
@@ -34,9 +34,10 @@ Current safety rules:
 
 - master Output is clamped
 - Buttery Fuzz has a controlled slider
-- the fuzz stage uses internal input-drive limits
+- the fuzz stage uses stronger internal input-drive limits
 - the fuzz output is trimmed before the mix
-- a small stereo-width branch is added after the fuzz mix
+- Resonance now reaches 18 for a stronger audible peak
+- true left/right stereo spread is added after the fuzz mix
 - Feedback is not connected in v0.20
 - Panic Stop silences the app quickly
 - no fake self-oscillation is connected
@@ -57,7 +58,7 @@ Current safety rules:
 
 Starts one sawtooth oscillator at A3.
 
-This is the simplest tone source. Use it when checking pitch, filter movement, and fuzz behaviour.
+This is the simplest tone source. Use it when checking pitch, filter movement, resonance, and fuzz behaviour.
 
 ### Start Noise
 
@@ -83,6 +84,8 @@ This means the filter can now open much brighter than before. That matters becau
 
 Emphasises the filter cutoff point.
 
+In this v0.20 branch, Resonance now reaches 18 instead of 8, so it should be more obvious.
+
 Higher resonance can make the sound sharper and more ring-like. Use it carefully with high cutoff.
 
 ### Buttery Fuzz
@@ -96,25 +99,26 @@ As the control rises, the input drive into the fuzz stage increases and more fuz
 The current internal limits are:
 
 ```text
-fuzz input gain range = 1.0 to 3.2
-fuzz curve drive = 1.5
-fuzz output trim = 0.22
+fuzz input gain range = 1.0 to 12.0
+fuzz curve drive = 2.8
+fuzz output trim = 0.16
 ```
 
-The goal is a warmer, fuzzier edge without harsh clipping.
+The goal is a clearly audible warmer, fuzzier edge without harsh clipping.
 
 ### Stereo width
 
-A small stereo-width branch is active after the fuzz mix.
+A true left/right stereo-width branch is active after the fuzz mix.
 
-It uses a very short offset branch to make the sound feel slightly wider. It is not a delay effect control and should stay subtle.
+It uses two very short offset branches panned left and right. It is not a delay effect control and should stay controlled.
 
 Current internal settings:
 
 ```text
-stereo spread delay = 0.006 seconds
-stereo center gain = 0.78
-stereo spread gain = 0.22
+left spread delay = 0.004 seconds
+right spread delay = 0.009 seconds
+stereo center gain = 0.62
+stereo spread gain = 0.42 per side
 ```
 
 ### Feedback
@@ -151,9 +155,10 @@ Use this checklist after pulling v0.20.
 - oscillator starts and stops
 - noise starts and stops
 - Buttery Fuzz slider works from 0 to 100
-- oscillator has a warmer or fuzzier edge as Buttery Fuzz rises
+- oscillator has a clearly warmer or fuzzier edge as Buttery Fuzz rises
 - noise has character but does not become harsh white fizz
-- stereo image feels slightly wider than a plain mono centre signal
+- Resonance is more obvious than before
+- stereo image feels wider than a plain mono centre signal
 - Cutoff / Brightness still reaches 16000 Hz
 - Output still controls level
 - Panic Stop silences everything
@@ -195,7 +200,11 @@ Purpose: let the filter open properly before adding fuzz distortion in v0.20.
 
 Added a Buttery Fuzz amount control after the low-pass filter.
 
-Added a small stereo-width branch after the fuzz mix.
+Retuned the fuzz after testing showed it was not obvious enough.
+
+Raised Resonance maximum from 8 to 18.
+
+Added a true left/right stereo-width branch after the fuzz mix.
 
 Feedback is parked in this version. The v0.20 target is good fuzz only.
 
