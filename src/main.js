@@ -51,7 +51,7 @@ document.querySelector("#app").innerHTML = `
         <h1>SpectraSynth</h1>
         <p class="subtitle">Visible spectral instrument</p>
       </div>
-      <div class="version-pill">v0.15 stable analyser checkpoint</div>
+      <div class="version-pill">v0.16 safe audition output</div>
     </header>
 
     <section class="control-grid">
@@ -364,7 +364,7 @@ async function startOscillator() {
   oscillator.frequency.setValueAtTime(220, context.currentTime);
 
   oscillatorGain.gain.setValueAtTime(0, context.currentTime);
-  oscillatorGain.gain.linearRampToValueAtTime(0.04, context.currentTime + 0.05);
+  oscillatorGain.gain.linearRampToValueAtTime(0.08, context.currentTime + 0.05);
 
   oscillator.connect(oscillatorGain);
   oscillatorGain.connect(toneFilter);
@@ -426,7 +426,7 @@ async function startNoise() {
   noiseSource.loop = true;
 
   noiseGain.gain.setValueAtTime(0, context.currentTime);
-  noiseGain.gain.linearRampToValueAtTime(0.025, context.currentTime + 0.05);
+  noiseGain.gain.linearRampToValueAtTime(0.05, context.currentTime + 0.05);
 
   noiseSource.connect(noiseGain);
   noiseGain.connect(toneFilter);
