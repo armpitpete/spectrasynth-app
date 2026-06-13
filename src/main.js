@@ -51,7 +51,7 @@ document.querySelector("#app").innerHTML = `
         <h1>SpectraSynth</h1>
         <p class="subtitle">Visible spectral instrument</p>
       </div>
-      <div class="version-pill">v0.14 analyser meters</div>
+      <div class="version-pill">v0.15 stable analyser checkpoint</div>
     </header>
 
     <section class="control-grid">
