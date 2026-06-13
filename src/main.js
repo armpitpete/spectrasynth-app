@@ -32,7 +32,7 @@ document.querySelector("#app").innerHTML = `
         <h1>SpectraSynth</h1>
         <p class="subtitle">Visible spectral instrument</p>
       </div>
-      <div class="version-pill">v0.6 master output</div>
+      <div class="version-pill">v0.7 visual bands</div>
     </header>
 
     <section class="control-grid">
@@ -81,7 +81,7 @@ document.querySelector("#app").innerHTML = `
     <section class="panel spectral-panel">
       <div class="section-heading">
         <h2>Spectral Engine</h2>
-        <p>10 static placeholder bands. No analyser connected yet.</p>
+        <p>10 visual bands. Faders update their matching meters only.</p>
       </div>
 
       <div class="band-bank">
@@ -120,6 +120,7 @@ const oscillatorButton = document.querySelector("#oscillatorButton");
 const noiseButton = document.querySelector("#noiseButton");
 const outputSlider = document.querySelector("#outputSlider");
 const patchSummaryText = document.querySelector("#patchSummaryText");
+const bandFaders = document.querySelectorAll(".band-fader");
 
 oscillatorButton.addEventListener("click", async () => {
   if (isOscillatorRunning) {
@@ -142,6 +143,12 @@ noiseButton.addEventListener("click", async () => {
 outputSlider.addEventListener("input", () => {
   updateMasterGainFromSlider();
   updatePatchSummary();
+});
+
+bandFaders.forEach((fader) => {
+  fader.addEventListener("input", () => {
+    updateBandMeterFromFader(fader);
+  });
 });
 
 async function ensureAudioContext() {
@@ -171,6 +178,13 @@ function updateMasterGainFromSlider() {
   const safeMasterLevel = sliderValue * 0.5;
 
   masterGain.gain.setTargetAtTime(safeMasterLevel, audioContext.currentTime, 0.015);
+}
+
+function updateBandMeterFromFader(fader) {
+  const bandStrip = fader.closest(".band-strip");
+  const meterFill = bandStrip.querySelector(".meter-fill");
+
+  meterFill.style.height = `${fader.value}%`;
 }
 
 async function startOscillator() {
@@ -288,22 +302,22 @@ function updatePatchSummary() {
 
   if (isOscillatorRunning && isNoiseRunning) {
     patchSummaryText.textContent =
-      `One quiet sawtooth oscillator and one quiet white noise source are running through the master Output control, currently set to ${outputPercent}%. No analyser, vocoder, effects, MIDI, microphone, filters, or sensors are connected yet.`;
+      `One quiet sawtooth oscillator and one quiet white noise source are running through the master Output control, currently set to ${outputPercent}%. The spectral faders are visual only. No analyser, vocoder, effects, MIDI, microphone, filters, or sensors are connected yet.`;
     return;
   }
 
   if (isOscillatorRunning) {
     patchSummaryText.textContent =
-      `One quiet sawtooth oscillator is running at A3 through the master Output control, currently set to ${outputPercent}%. No analyser, vocoder, effects, MIDI, microphone, filters, or sensors are connected yet.`;
+      `One quiet sawtooth oscillator is running at A3 through the master Output control, currently set to ${outputPercent}%. The spectral faders are visual only. No analyser, vocoder, effects, MIDI, microphone, filters, or sensors are connected yet.`;
     return;
   }
 
   if (isNoiseRunning) {
     patchSummaryText.textContent =
-      `One quiet white noise source is running through the master Output control, currently set to ${outputPercent}%. No analyser, vocoder, effects, MIDI, microphone, filters, or sensors are connected yet.`;
+      `One quiet white noise source is running through the master Output control, currently set to ${outputPercent}%. The spectral faders are visual only. No analyser, vocoder, effects, MIDI, microphone, filters, or sensors are connected yet.`;
     return;
   }
 
   patchSummaryText.textContent =
-    `No sound engine running. Press Start Oscillator or Start Noise to test one quiet source. Output is set to ${outputPercent}%.`;
+    `No sound engine running. Press Start Oscillator or Start Noise to test one quiet source. Output is set to ${outputPercent}%. The spectral faders are visual only.`;
 }
