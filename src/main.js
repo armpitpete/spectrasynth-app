@@ -86,7 +86,7 @@ document.querySelector("#app").innerHTML = `
         <h1>SpectraSynth</h1>
         <p class="subtitle">Visible spectral instrument</p>
       </div>
-      <div class="version-pill">v0.25 silent Band 5 filter tap</div>
+      <div class="version-pill">v0.26 stable silent Band 5 tap checkpoint</div>
     </header>
 
     <section class="control-grid">
@@ -144,7 +144,7 @@ document.querySelector("#app").innerHTML = `
     <section class="panel spectral-panel">
       <div class="section-heading">
         <h2>Spectral Engine</h2>
-        <p>Band 5 has a silent internal filter tap. Faders and Mute buttons remain visual-only.</p>
+        <p>Band 5 has a stable silent internal filter tap. Faders and Mute buttons remain visual-only.</p>
       </div>
 
       <div class="band-bank">
@@ -174,7 +174,7 @@ document.querySelector("#app").innerHTML = `
 
     <section class="panel patch-summary">
       <h2>Plain Patch Summary</h2>
-      <p id="patchSummaryText">Silent Band 5 filter tap test. No sound engine running. Press Start Oscillator or Start Noise to test one quiet source. Output is set to 70%, clamped to a safe maximum. Cutoff / Brightness uses a perceptual response curve from 120 Hz to 16000 Hz. The current mapped cutoff is about 2625 Hz and shapes both before and after the fuzz stage. Resonance reaches 40 for a strong audible peak. Buttery Fuzz is set to 70% and uses rounded saturation instead of hard clipping. Band 5 Voice has a real silent bandpass filter tap at 1200 Hz with Q 1.2, routed only to an internal zero-gain path. It is not connected to master Output and does not affect sound. Faders and Mute buttons are still visual-only. Feedback is not connected in v0.25. No fake self-oscillation is connected.</p>
+      <p id="patchSummaryText">Stable silent Band 5 tap checkpoint. The tested v0.25 silent Band 5 tap is frozen. No sound engine running. Press Start Oscillator or Start Noise to test one quiet source. Output is set to 70%, clamped to a safe maximum. Cutoff / Brightness uses a perceptual response curve from 120 Hz to 16000 Hz. The current mapped cutoff is about 2625 Hz and shapes both before and after the fuzz stage. Resonance reaches 40 for a strong audible peak. Buttery Fuzz is set to 70% and uses rounded saturation instead of hard clipping. Band 5 Voice has a real silent bandpass filter tap at 1200 Hz with Q 1.2, routed only to an internal zero-gain path. It is not connected to master Output and does not affect sound. Faders and Mute buttons are still visual-only. Feedback is not connected in v0.26. No fake self-oscillation is connected.</p>
     </section>
   </main>
 `;
@@ -659,7 +659,7 @@ function getSilentBand5TapSummaryText() {
     return "No silent spectral filter tap is active.";
   }
 
-  return `Band 5 ${bandState.label} has a real silent bandpass filter tap at ${SILENT_BAND_5_FREQUENCY} Hz with Q ${SILENT_BAND_5_Q}. It is routed only to an internal zero-gain path and does not affect sound.`;
+  return `The tested silent Band 5 tap is frozen. Band 5 ${bandState.label} has a real silent bandpass filter tap at ${SILENT_BAND_5_FREQUENCY} Hz with Q ${SILENT_BAND_5_Q}. It is routed only to an internal zero-gain path and does not affect sound.`;
 }
 
 function getSpectralBandSummaryText() {
@@ -671,7 +671,7 @@ function getSpectralBandSummaryText() {
     ? "No spectral fader or Mute button has been moved yet."
     : `Last touched band: ${spectralBandState[lastTouchedBandIndex].label} at ${spectralBandState[lastTouchedBandIndex].faderValue}% visual value, analyser level ${spectralBandState[lastTouchedBandIndex].analyserLevel}%.`;
 
-  return `The 10 spectral bands store fader value, muted state, analyser level, and Band 5 silent filter-tap state. Faders and Mute buttons remain visual-only and do not affect sound. ${getSilentBand5TapSummaryText()} ${mutedSummary} ${lastTouchedSummary}`;
+  return `The 10 spectral bands store fader value, muted state, analyser level, and stable Band 5 silent filter-tap state. Faders and Mute buttons remain visual-only and do not affect sound. ${getSilentBand5TapSummaryText()} ${mutedSummary} ${lastTouchedSummary}`;
 }
 
 function updatePatchSummary() {
@@ -680,34 +680,35 @@ function updatePatchSummary() {
   const resonanceAmount = resonanceSlider.value;
   const fuzzSummary = getFuzzSummaryText();
   const spectralStateText = getSpectralBandSummaryText();
+  const checkpointText = "The tested v0.25 silent Band 5 tap is frozen in this v0.26 checkpoint.";
   const safetyText = `Output is clamped to a safe maximum gain of ${MAX_SAFE_MASTER_GAIN}.`;
   const cutoffText = `Cutoff / Brightness uses a perceptual slider curve from ${CUTOFF_MIN_FREQUENCY} Hz to ${CUTOFF_MAX_FREQUENCY} Hz and is currently mapped to ${cutoffFrequency} Hz.`;
-  const notYetText = "No audible band filtering, feedback loop, vocoder, delay/reverb effects, MIDI, microphone, sensors, 10 real audible filter bands, filter mode switching, band-fader audio behaviour, or fake self-oscillation is connected yet.";
+  const notYetText = "No audible Band 5 filtering, all-10-band filter bank, feedback loop, vocoder, delay/reverb effects, MIDI, microphone, sensors, band-fader audio behaviour, or fake self-oscillation is connected yet.";
 
   if (wasPanicStopped && !isOscillatorRunning && !isNoiseRunning) {
     patchSummaryText.textContent =
-      `Panic Stop used. Oscillator and noise are stopped, and output has been silenced. The analyser meters will fall as the output reaches silence. Press Start Oscillator or Start Noise to resume normal use. ${fuzzSummary} ${safetyText} ${cutoffText} Resonance is set to ${resonanceAmount}. ${spectralStateText} ${notYetText}`;
+      `Panic Stop used. Oscillator and noise are stopped, and output has been silenced. ${checkpointText} The analyser meters will fall as the output reaches silence. Press Start Oscillator or Start Noise to resume normal use. ${fuzzSummary} ${safetyText} ${cutoffText} Resonance is set to ${resonanceAmount}. ${spectralStateText} ${notYetText}`;
     return;
   }
 
   if (isOscillatorRunning && isNoiseRunning) {
     patchSummaryText.textContent =
-      `One quiet sawtooth oscillator and one quiet white noise source are running through one pre-fuzz low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the Buttery Fuzz stage, then through a post-fuzz low-pass filter that follows Cutoff, then through the unchanged master Output path set to ${outputPercent}%. ${fuzzSummary} ${safetyText} ${cutoffText} ${spectralStateText} ${notYetText}`;
+      `One quiet sawtooth oscillator and one quiet white noise source are running through one pre-fuzz low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the Buttery Fuzz stage, then through a post-fuzz low-pass filter that follows Cutoff, then through the unchanged master Output path set to ${outputPercent}%. ${checkpointText} ${fuzzSummary} ${safetyText} ${cutoffText} ${spectralStateText} ${notYetText}`;
     return;
   }
 
   if (isOscillatorRunning) {
     patchSummaryText.textContent =
-      `One quiet sawtooth oscillator is running at A3 through one pre-fuzz low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the Buttery Fuzz stage, then through a post-fuzz low-pass filter that follows Cutoff, then through the unchanged master Output path set to ${outputPercent}%. ${fuzzSummary} ${safetyText} ${cutoffText} ${spectralStateText} ${notYetText}`;
+      `One quiet sawtooth oscillator is running at A3 through one pre-fuzz low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the Buttery Fuzz stage, then through a post-fuzz low-pass filter that follows Cutoff, then through the unchanged master Output path set to ${outputPercent}%. ${checkpointText} ${fuzzSummary} ${safetyText} ${cutoffText} ${spectralStateText} ${notYetText}`;
     return;
   }
 
   if (isNoiseRunning) {
     patchSummaryText.textContent =
-      `One quiet white noise source is running through one pre-fuzz low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the Buttery Fuzz stage, then through a post-fuzz low-pass filter that follows Cutoff, then through the unchanged master Output path set to ${outputPercent}%. ${fuzzSummary} ${safetyText} ${cutoffText} ${spectralStateText} ${notYetText}`;
+      `One quiet white noise source is running through one pre-fuzz low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the Buttery Fuzz stage, then through a post-fuzz low-pass filter that follows Cutoff, then through the unchanged master Output path set to ${outputPercent}%. ${checkpointText} ${fuzzSummary} ${safetyText} ${cutoffText} ${spectralStateText} ${notYetText}`;
     return;
   }
 
   patchSummaryText.textContent =
-    `Silent Band 5 filter tap test. No sound engine running. Press Start Oscillator or Start Noise to test one quiet source. Output is set to ${outputPercent}%. ${fuzzSummary} ${safetyText} ${cutoffText} Resonance is set to ${resonanceAmount}. ${spectralStateText} ${notYetText}`;
+    `Stable silent Band 5 tap checkpoint. ${checkpointText} No sound engine running. Press Start Oscillator or Start Noise to test one quiet source. Output is set to ${outputPercent}%. ${fuzzSummary} ${safetyText} ${cutoffText} Resonance is set to ${resonanceAmount}. ${spectralStateText} ${notYetText}`;
 }
