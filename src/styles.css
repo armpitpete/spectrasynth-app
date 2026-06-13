@@ -146,15 +146,21 @@ input[type="range"] {
 
 .band-strip {
   display: grid;
-  grid-template-rows: auto 180px auto auto;
-  gap: 0.7rem;
-  align-items: center;
+  grid-template-rows: auto 170px auto auto;
+  gap: 0.6rem;
   justify-items: center;
-  min-height: 340px;
-  padding: 0.8rem 0.55rem;
+  min-height: 315px;
+  padding: 0.75rem 0.55rem;
   border: 1px solid rgba(255, 255, 255, 0.11);
   border-radius: 1rem;
   background: linear-gradient(180deg, #202838 0%, #111824 100%);
+}
+
+.band-top {
+  display: grid;
+  gap: 0.35rem;
+  justify-items: center;
+  min-height: 3.8rem;
 }
 
 .band-number {
@@ -164,7 +170,6 @@ input[type="range"] {
   height: 2rem;
   border-radius: 999px;
   background: #2a3345;
-  color: #f7f7ff;
   font-weight: 700;
 }
 

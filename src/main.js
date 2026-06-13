@@ -1,6 +1,17 @@
 import "./styles.css";
 
-const bands = Array.from({ length: 10 }, (_, index) => index + 1);
+const bands = [
+  { number: 1, label: "Low", height: 28 },
+  { number: 2, label: "Low-Mid", height: 34 },
+  { number: 3, label: "Body", height: 40 },
+  { number: 4, label: "Warmth", height: 46 },
+  { number: 5, label: "Voice", height: 52 },
+  { number: 6, label: "Edge", height: 58 },
+  { number: 7, label: "Presence", height: 64 },
+  { number: 8, label: "Bright", height: 70 },
+  { number: 9, label: "Air", height: 76 },
+  { number: 10, label: "Hiss", height: 82 },
+];
 
 document.querySelector("#app").innerHTML = `
   <main class="app-shell">
@@ -67,11 +78,18 @@ document.querySelector("#app").innerHTML = `
           .map(
             (band) => `
               <article class="band-strip">
-                <div class="band-number">${band}</div>
-                <div class="meter">
-                  <div class="meter-fill" style="height: ${20 + band * 5}%"></div>
+                <div class="band-top">
+                  <div class="band-number">${band.number}</div>
+                  <div class="band-label">${band.label}</div>
                 </div>
-                <input class="band-fader" type="range" min="0" max="100" value="55" />
+
+                <div class="meter-wrap">
+                  <div class="meter">
+                    <div class="meter-fill" style="height: ${band.height}%"></div>
+                  </div>
+                </div>
+
+                <input class="band-fader" type="range" min="0" max="100" value="${band.height}" />
                 <button class="mute-button">Mute</button>
               </article>
             `
