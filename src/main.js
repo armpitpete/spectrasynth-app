@@ -5,6 +5,12 @@ const MAX_SAFE_FEEDBACK_GAIN = 0.5;
 const FEEDBACK_CURVE_EXPONENT = 0.35;
 const FEEDBACK_DELAY_SECONDS = 0.018;
 const PANIC_RAMP_SECONDS = 0.02;
+const ANALYSER_FFT_SIZE = 1024;
+const ANALYSER_SMOOTHING = 0.82;
+const ANALYSER_MIN_DECIBELS = -90;
+const ANALYSER_MAX_DECIBELS = -35;
+const ANALYSER_BAND_COUNT = 10;
+const ANALYSER_MAX_FREQUENCY = 10000;
 
 const bands = [
   { number: 1, label: "Low", height: 28 },
@@ -24,6 +30,9 @@ let toneFilter = null;
 let feedbackDelay = null;
 let feedbackGain = null;
 let masterGain = null;
+let analyser = null;
+let analyserData = null;
+let analyserAnimationFrame = null;
 
 let oscillator = null;
 let oscillatorGain = null;
@@ -42,7 +51,7 @@ document.querySelector("#app").innerHTML = `
         <h1>SpectraSynth</h1>
         <p class="subtitle">Visible spectral instrument</p>
       </div>
-      <div class="version-pill">v0.13 stable audio core</div>
+      <div class="version-pill">v0.14 analyser meters</div>
     </header>
 
     <section class="control-grid">
@@ -100,7 +109,7 @@ document.querySelector("#app").innerHTML = `
     <section class="panel spectral-panel">
       <div class="section-heading">
         <h2>Spectral Engine</h2>
-        <p>10 visual bands. Faders update their matching meters only.</p>
+        <p>10 live analyser meters. Faders remain visual-only and do not control sound yet.</p>
       </div>
 
       <div class="band-bank">
@@ -115,7 +124,7 @@ document.querySelector("#app").innerHTML = `
 
                 <div class="meter-wrap">
                   <div class="meter">
-                    <div class="meter-fill" style="height: ${band.height}%"></div>
+                    <div class="meter-fill" style="height: 0%"></div>
                   </div>
                 </div>
 
@@ -130,7 +139,7 @@ document.querySelector("#app").innerHTML = `
 
     <section class="panel patch-summary">
       <h2>Plain Patch Summary</h2>
-      <p id="patchSummaryText">Stable audio core checkpoint. No sound engine running. Press Start Oscillator or Start Noise to test one quiet source. Output is set to 70%, clamped to a safe maximum. Low-pass cutoff is set to 2600 Hz. Resonance is set to 0.7. Feedback is off. No fake self-oscillation is connected.</p>
+      <p id="patchSummaryText">Stable audio core with analyser meters. No sound engine running. Press Start Oscillator or Start Noise to test one quiet source. Output is set to 70%, clamped to a safe maximum. Low-pass cutoff is set to 2600 Hz. Resonance is set to 0.7. Feedback is off. The spectral meters listen after the master Output control. The spectral faders are visual only. No fake self-oscillation is connected.</p>
     </section>
   </main>
 `;
@@ -143,7 +152,7 @@ const resonanceSlider = document.querySelector("#resonanceSlider");
 const feedbackSlider = document.querySelector("#feedbackSlider");
 const outputSlider = document.querySelector("#outputSlider");
 const patchSummaryText = document.querySelector("#patchSummaryText");
-const bandFaders = document.querySelectorAll(".band-fader");
+const meterFills = document.querySelectorAll(".meter-fill");
 
 oscillatorButton.addEventListener("click", async () => {
   if (isOscillatorRunning) {
@@ -185,12 +194,6 @@ outputSlider.addEventListener("input", () => {
   updatePatchSummary();
 });
 
-bandFaders.forEach((fader) => {
-  fader.addEventListener("input", () => {
-    updateBandMeterFromFader(fader);
-  });
-});
-
 async function ensureAudioContext() {
   if (!audioContext) {
     audioContext = new AudioContext();
@@ -200,6 +203,17 @@ async function ensureAudioContext() {
     masterGain = audioContext.createGain();
     masterGain.connect(audioContext.destination);
     updateMasterGainFromSlider();
+  }
+
+  if (!analyser) {
+    analyser = audioContext.createAnalyser();
+    analyser.fftSize = ANALYSER_FFT_SIZE;
+    analyser.smoothingTimeConstant = ANALYSER_SMOOTHING;
+    analyser.minDecibels = ANALYSER_MIN_DECIBELS;
+    analyser.maxDecibels = ANALYSER_MAX_DECIBELS;
+    analyserData = new Uint8Array(analyser.frequencyBinCount);
+    masterGain.connect(analyser);
+    startAnalyserMeters();
   }
 
   if (!toneFilter) {
@@ -284,11 +298,56 @@ function silenceFeedback() {
   feedbackGain.gain.linearRampToValueAtTime(0, audioContext.currentTime + PANIC_RAMP_SECONDS);
 }
 
-function updateBandMeterFromFader(fader) {
-  const bandStrip = fader.closest(".band-strip");
-  const meterFill = bandStrip.querySelector(".meter-fill");
+function startAnalyserMeters() {
+  if (analyserAnimationFrame) {
+    return;
+  }
 
-  meterFill.style.height = `${fader.value}%`;
+  updateAnalyserMeters();
+}
+
+function updateAnalyserMeters() {
+  if (!analyser || !analyserData || !audioContext) {
+    return;
+  }
+
+  analyser.getByteFrequencyData(analyserData);
+
+  meterFills.forEach((meterFill, bandIndex) => {
+    meterFill.style.height = `${getAnalyserBandLevel(bandIndex)}%`;
+  });
+
+  analyserAnimationFrame = requestAnimationFrame(updateAnalyserMeters);
+}
+
+function getAnalyserBandLevel(bandIndex) {
+  const nyquistFrequency = audioContext.sampleRate / 2;
+  const maxUsefulBin = Math.max(
+    ANALYSER_BAND_COUNT,
+    Math.min(
+      analyserData.length,
+      Math.floor((ANALYSER_MAX_FREQUENCY / nyquistFrequency) * analyserData.length)
+    )
+  );
+  const binStart = Math.floor((bandIndex / ANALYSER_BAND_COUNT) * maxUsefulBin);
+  const binEnd = Math.max(
+    binStart + 1,
+    Math.floor(((bandIndex + 1) / ANALYSER_BAND_COUNT) * maxUsefulBin)
+  );
+
+  let total = 0;
+  let count = 0;
+
+  for (let binIndex = binStart; binIndex < binEnd; binIndex += 1) {
+    total += analyserData[binIndex];
+    count += 1;
+  }
+
+  if (count === 0) {
+    return 0;
+  }
+
+  return Math.round((total / count / 255) * 100);
 }
 
 async function startOscillator() {
@@ -466,31 +525,33 @@ function updatePatchSummary() {
   const resonanceAmount = resonanceSlider.value;
   const feedbackSummary = getFeedbackSummaryText();
   const safetyText = `Output is clamped to a safe maximum gain of ${MAX_SAFE_MASTER_GAIN}.`;
+  const spectralText = "The spectral meters are analyser-driven from the real output. The spectral faders are visual only and do not control sound yet.";
+  const notYetText = "No vocoder, effects, MIDI, microphone, sensors, 10 real filter bands, filter mode switching, or fake self-oscillation is connected yet.";
 
   if (wasPanicStopped && !isOscillatorRunning && !isNoiseRunning) {
     patchSummaryText.textContent =
-      `Panic Stop used. Oscillator and noise are stopped, feedback has been reset to 0%, and output has been silenced. Press Start Oscillator or Start Noise to resume normal use. ${safetyText} Low-pass cutoff is set to ${cutoffFrequency} Hz. Resonance is set to ${resonanceAmount}. No fake self-oscillation is connected.`;
+      `Panic Stop used. Oscillator and noise are stopped, feedback has been reset to 0%, and output has been silenced. The analyser meters will fall as the output reaches silence. Press Start Oscillator or Start Noise to resume normal use. ${safetyText} Low-pass cutoff is set to ${cutoffFrequency} Hz. Resonance is set to ${resonanceAmount}. ${notYetText}`;
     return;
   }
 
   if (isOscillatorRunning && isNoiseRunning) {
     patchSummaryText.textContent =
-      `Stable audio core. One quiet sawtooth oscillator and one quiet white noise source are running through one low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the master Output control set to ${outputPercent}%. ${feedbackSummary} ${safetyText} The spectral faders are visual only. No analyser, vocoder, effects, MIDI, microphone, 10 real filter bands, filter mode switching, sensors, or fake self-oscillation is connected yet.`;
+      `Stable audio core. One quiet sawtooth oscillator and one quiet white noise source are running through one low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the master Output control set to ${outputPercent}%. ${feedbackSummary} ${safetyText} ${spectralText} ${notYetText}`;
     return;
   }
 
   if (isOscillatorRunning) {
     patchSummaryText.textContent =
-      `Stable audio core. One quiet sawtooth oscillator is running at A3 through one low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the master Output control set to ${outputPercent}%. ${feedbackSummary} ${safetyText} The spectral faders are visual only. No analyser, vocoder, effects, MIDI, microphone, 10 real filter bands, filter mode switching, sensors, or fake self-oscillation is connected yet.`;
+      `Stable audio core. One quiet sawtooth oscillator is running at A3 through one low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the master Output control set to ${outputPercent}%. ${feedbackSummary} ${safetyText} ${spectralText} ${notYetText}`;
     return;
   }
 
   if (isNoiseRunning) {
     patchSummaryText.textContent =
-      `Stable audio core. One quiet white noise source is running through one low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the master Output control set to ${outputPercent}%. ${feedbackSummary} ${safetyText} The spectral faders are visual only. No analyser, vocoder, effects, MIDI, microphone, 10 real filter bands, filter mode switching, sensors, or fake self-oscillation is connected yet.`;
+      `Stable audio core. One quiet white noise source is running through one low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the master Output control set to ${outputPercent}%. ${feedbackSummary} ${safetyText} ${spectralText} ${notYetText}`;
     return;
   }
 
   patchSummaryText.textContent =
-    `Stable audio core checkpoint. No sound engine running. Press Start Oscillator or Start Noise to test one quiet source. Output is set to ${outputPercent}%. ${feedbackSummary} ${safetyText} Low-pass cutoff is set to ${cutoffFrequency} Hz. Resonance is set to ${resonanceAmount}. The spectral faders are visual only. No fake self-oscillation is connected yet.`;
+    `Stable audio core with analyser meters. No sound engine running. Press Start Oscillator or Start Noise to test one quiet source. Output is set to ${outputPercent}%. ${feedbackSummary} ${safetyText} Low-pass cutoff is set to ${cutoffFrequency} Hz. Resonance is set to ${resonanceAmount}. ${spectralText} No fake self-oscillation is connected yet.`;
 }
