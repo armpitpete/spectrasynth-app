@@ -1,6 +1,6 @@
 # SpectraSynth Manual
 
-Version: v0.19 draft  
+Version: v0.20 draft  
 Status: written alongside the prototype
 
 ## What SpectraSynth is
@@ -17,7 +17,7 @@ Current sound sources:
 Current sound path:
 
 ```text
-oscillator / noise → low-pass filter → master Output → analyser meters / speakers
+oscillator / noise → low-pass filter → fixed buttery fuzz → master Output → analyser meters / speakers
 ```
 
 The feedback path is separate and protected:
@@ -39,6 +39,7 @@ Current safety rules:
 - feedback is shaped so it comes in more gradually
 - feedback passes through a very short delay
 - feedback includes gentle soft saturation
+- the main fuzz stage has fixed gain and output trim
 - Panic Stop silences the app quickly
 - no fake self-oscillation is connected
 
@@ -58,7 +59,7 @@ Current safety rules:
 
 Starts one sawtooth oscillator at A3.
 
-This is the simplest tone source. Use it when checking pitch, filter movement, feedback character, and future fuzz behaviour.
+This is the simplest tone source. Use it when checking pitch, filter movement, feedback character, and fuzz behaviour.
 
 ### Start Noise
 
@@ -94,6 +95,20 @@ The feedback is protected. It is capped, delayed, shaped, and softly saturated i
 
 Feedback should add bite, thickness, and movement. It should not run away or become uncontrollable.
 
+### Fixed buttery fuzz
+
+Adds a subtle fixed fuzz stage after the low-pass filter and before the master Output control.
+
+The current fuzz is not a separate knob yet. It uses fixed internal settings:
+
+```text
+fuzz input gain = 4.0
+fuzz curve drive = 1.6
+fuzz output trim = 0.25
+```
+
+The goal is a warmer, fuzzier edge without harsh clipping and without breaking the feedback safety.
+
 ### Output
 
 Controls the final level.
@@ -113,16 +128,17 @@ meters = real audio data
 faders = visual only
 ```
 
-## v0.19 test checklist
+## v0.20 test checklist
 
-Use this checklist after pulling v0.19.
+Use this checklist after pulling v0.20.
 
 - app loads
-- header says `v0.19 extended cutoff brightness`
+- header says `v0.20 buttery fuzz distortion`
 - oscillator starts and stops
 - noise starts and stops
-- Cutoff / Brightness reaches 16000 Hz
-- full cutoff sounds brighter than v0.17
+- oscillator has a warmer or fuzzier edge
+- noise has character but does not become harsh white fizz
+- Cutoff / Brightness still reaches 16000 Hz
 - Output still controls level
 - feedback still works
 - buttery feedback character remains
@@ -135,7 +151,7 @@ Use this checklist after pulling v0.19.
 
 Not built yet:
 
-- buttery fuzz distortion
+- fuzz amount control
 - microphone input
 - vocoder mode
 - MIDI
@@ -159,3 +175,9 @@ Purpose: make feedback less brittle and less electronic without adding a separat
 Raised the Cutoff / Brightness maximum from 8000 Hz to 16000 Hz.
 
 Purpose: let the filter open properly before adding fuzz distortion in v0.20.
+
+### v0.20 — Buttery fuzz distortion
+
+Added a fixed buttery fuzz stage after the low-pass filter and before master Output.
+
+Purpose: give the oscillator and noise a warmer fuzz edge without adding another visible control yet.
