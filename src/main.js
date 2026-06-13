@@ -15,8 +15,12 @@ const bands = [
 
 let audioContext = null;
 let oscillator = null;
-let outputGain = null;
+let oscillatorGain = null;
 let isOscillatorRunning = false;
+
+let noiseSource = null;
+let noiseGain = null;
+let isNoiseRunning = false;
 
 document.querySelector("#app").innerHTML = `
   <main class="app-shell">
@@ -26,7 +30,7 @@ document.querySelector("#app").innerHTML = `
         <h1>SpectraSynth</h1>
         <p class="subtitle">Visible spectral instrument</p>
       </div>
-      <div class="version-pill">v0.4 oscillator test</div>
+      <div class="version-pill">v0.5 noise source</div>
     </header>
 
     <section class="control-grid">
@@ -34,7 +38,7 @@ document.querySelector("#app").innerHTML = `
         <h2>Source</h2>
         <div class="button-row">
           <button id="oscillatorButton">Start Oscillator</button>
-          <button>Noise</button>
+          <button id="noiseButton">Start Noise</button>
           <button>Microphone / Audio Input</button>
         </div>
       </section>
@@ -105,12 +109,13 @@ document.querySelector("#app").innerHTML = `
 
     <section class="panel patch-summary">
       <h2>Plain Patch Summary</h2>
-      <p id="patchSummaryText">No sound engine running. Press Start Oscillator to hear one quiet sawtooth test tone.</p>
+      <p id="patchSummaryText">No sound engine running. Press Start Oscillator or Start Noise to test one quiet source.</p>
     </section>
   </main>
 `;
 
 const oscillatorButton = document.querySelector("#oscillatorButton");
+const noiseButton = document.querySelector("#noiseButton");
 const patchSummaryText = document.querySelector("#patchSummaryText");
 
 oscillatorButton.addEventListener("click", async () => {
@@ -120,6 +125,15 @@ oscillatorButton.addEventListener("click", async () => {
   }
 
   await startOscillator();
+});
+
+noiseButton.addEventListener("click", async () => {
+  if (isNoiseRunning) {
+    stopNoise();
+    return;
+  }
+
+  await startNoise();
 });
 
 async function ensureAudioContext() {
@@ -138,48 +152,131 @@ async function startOscillator() {
   const context = await ensureAudioContext();
 
   oscillator = context.createOscillator();
-  outputGain = context.createGain();
+  oscillatorGain = context.createGain();
 
   oscillator.type = "sawtooth";
   oscillator.frequency.setValueAtTime(220, context.currentTime);
 
-  outputGain.gain.setValueAtTime(0, context.currentTime);
-  outputGain.gain.linearRampToValueAtTime(0.04, context.currentTime + 0.05);
+  oscillatorGain.gain.setValueAtTime(0, context.currentTime);
+  oscillatorGain.gain.linearRampToValueAtTime(0.04, context.currentTime + 0.05);
 
-  oscillator.connect(outputGain);
-  outputGain.connect(context.destination);
+  oscillator.connect(oscillatorGain);
+  oscillatorGain.connect(context.destination);
 
   oscillator.start();
 
   isOscillatorRunning = true;
   oscillatorButton.textContent = "Stop Oscillator";
-  patchSummaryText.textContent =
-    "One quiet sawtooth oscillator is running at A3. No analyser, vocoder, effects, MIDI, microphone, or sensors are connected yet.";
+  updatePatchSummary();
 }
 
 function stopOscillator() {
-  if (!oscillator || !outputGain || !audioContext) {
+  if (!oscillator || !oscillatorGain || !audioContext) {
     return;
   }
 
   const stopTime = audioContext.currentTime + 0.06;
 
-  outputGain.gain.cancelScheduledValues(audioContext.currentTime);
-  outputGain.gain.setValueAtTime(outputGain.gain.value, audioContext.currentTime);
-  outputGain.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.05);
+  oscillatorGain.gain.cancelScheduledValues(audioContext.currentTime);
+  oscillatorGain.gain.setValueAtTime(oscillatorGain.gain.value, audioContext.currentTime);
+  oscillatorGain.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.05);
 
   oscillator.stop(stopTime);
 
   oscillator.onended = () => {
     oscillator.disconnect();
-    outputGain.disconnect();
+    oscillatorGain.disconnect();
 
     oscillator = null;
-    outputGain = null;
+    oscillatorGain = null;
   };
 
   isOscillatorRunning = false;
   oscillatorButton.textContent = "Start Oscillator";
+  updatePatchSummary();
+}
+
+async function startNoise() {
+  const context = await ensureAudioContext();
+  const noiseBuffer = createWhiteNoiseBuffer(context);
+
+  noiseSource = context.createBufferSource();
+  noiseGain = context.createGain();
+
+  noiseSource.buffer = noiseBuffer;
+  noiseSource.loop = true;
+
+  noiseGain.gain.setValueAtTime(0, context.currentTime);
+  noiseGain.gain.linearRampToValueAtTime(0.025, context.currentTime + 0.05);
+
+  noiseSource.connect(noiseGain);
+  noiseGain.connect(context.destination);
+
+  noiseSource.start();
+
+  isNoiseRunning = true;
+  noiseButton.textContent = "Stop Noise";
+  updatePatchSummary();
+}
+
+function stopNoise() {
+  if (!noiseSource || !noiseGain || !audioContext) {
+    return;
+  }
+
+  const stopTime = audioContext.currentTime + 0.06;
+
+  noiseGain.gain.cancelScheduledValues(audioContext.currentTime);
+  noiseGain.gain.setValueAtTime(noiseGain.gain.value, audioContext.currentTime);
+  noiseGain.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.05);
+
+  noiseSource.stop(stopTime);
+
+  noiseSource.onended = () => {
+    noiseSource.disconnect();
+    noiseGain.disconnect();
+
+    noiseSource = null;
+    noiseGain = null;
+  };
+
+  isNoiseRunning = false;
+  noiseButton.textContent = "Start Noise";
+  updatePatchSummary();
+}
+
+function createWhiteNoiseBuffer(context) {
+  const durationSeconds = 1;
+  const sampleCount = context.sampleRate * durationSeconds;
+  const buffer = context.createBuffer(1, sampleCount, context.sampleRate);
+  const channelData = buffer.getChannelData(0);
+
+  for (let index = 0; index < sampleCount; index += 1) {
+    channelData[index] = Math.random() * 2 - 1;
+  }
+
+  return buffer;
+}
+
+function updatePatchSummary() {
+  if (isOscillatorRunning && isNoiseRunning) {
+    patchSummaryText.textContent =
+      "One quiet sawtooth oscillator and one quiet white noise source are running. No analyser, vocoder, effects, MIDI, microphone, filters, or sensors are connected yet.";
+    return;
+  }
+
+  if (isOscillatorRunning) {
+    patchSummaryText.textContent =
+      "One quiet sawtooth oscillator is running at A3. No analyser, vocoder, effects, MIDI, microphone, filters, or sensors are connected yet.";
+    return;
+  }
+
+  if (isNoiseRunning) {
+    patchSummaryText.textContent =
+      "One quiet white noise source is running. No analyser, vocoder, effects, MIDI, microphone, filters, or sensors are connected yet.";
+    return;
+  }
+
   patchSummaryText.textContent =
-    "No sound engine running. Press Start Oscillator to hear one quiet sawtooth test tone.";
+    "No sound engine running. Press Start Oscillator or Start Noise to test one quiet source.";
 }
