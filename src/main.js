@@ -1,9 +1,6 @@
 import "./styles.css";
 
 const MAX_SAFE_MASTER_GAIN = 0.35;
-const MAX_SAFE_FEEDBACK_GAIN = 0.45;
-const FEEDBACK_CURVE_EXPONENT = 0.35;
-const FEEDBACK_DELAY_SECONDS = 0.018;
 const PANIC_RAMP_SECONDS = 0.02;
 const ANALYSER_FFT_SIZE = 1024;
 const ANALYSER_SMOOTHING = 0.82;
@@ -11,6 +8,15 @@ const ANALYSER_MIN_DECIBELS = -90;
 const ANALYSER_MAX_DECIBELS = -35;
 const ANALYSER_BAND_COUNT = 10;
 const ANALYSER_MAX_FREQUENCY = 10000;
+const FUZZ_MIN_INPUT_GAIN = 1.0;
+const FUZZ_MAX_INPUT_GAIN = 26.0;
+const FUZZ_OUTPUT_TRIM = 0.28;
+const FUZZ_CURVE_DRIVE = 3.8;
+const POST_FUZZ_FILTER_Q = 0.7;
+const STEREO_LEFT_DELAY_SECONDS = 0.004;
+const STEREO_RIGHT_DELAY_SECONDS = 0.009;
+const STEREO_CENTER_GAIN = 0.62;
+const STEREO_SPREAD_GAIN = 0.42;
 
 const bands = [
   { number: 1, label: "Low", height: 28 },
@@ -27,9 +33,20 @@ const bands = [
 
 let audioContext = null;
 let toneFilter = null;
-let feedbackDelay = null;
-let feedbackSaturation = null;
-let feedbackGain = null;
+let butteryFuzzInputGain = null;
+let butteryFuzz = null;
+let butteryFuzzOutputGain = null;
+let butteryFuzzDryGain = null;
+let butteryFuzzWetGain = null;
+let butteryFuzzMixGain = null;
+let postFuzzFilter = null;
+let stereoCenterGain = null;
+let stereoLeftDelay = null;
+let stereoLeftPanner = null;
+let stereoLeftGain = null;
+let stereoRightDelay = null;
+let stereoRightPanner = null;
+let stereoRightGain = null;
 let masterGain = null;
 let analyser = null;
 let analyserData = null;
@@ -52,7 +69,7 @@ document.querySelector("#app").innerHTML = `
         <h1>SpectraSynth</h1>
         <p class="subtitle">Visible spectral instrument</p>
       </div>
-      <div class="version-pill">v0.19 extended cutoff brightness</div>
+      <div class="version-pill">v0.20 buttery fuzz distortion</div>
     </header>
 
     <section class="control-grid">
@@ -74,11 +91,11 @@ document.querySelector("#app").innerHTML = `
         </label>
         <label>
           Resonance
-          <input id="resonanceSlider" type="range" min="0.4" max="8" step="0.1" value="0.7" />
+          <input id="resonanceSlider" type="range" min="0.4" max="40" step="0.1" value="2" />
         </label>
         <label>
-          Feedback
-          <input id="feedbackSlider" type="range" min="0" max="100" value="0" />
+          Buttery Fuzz
+          <input id="butteryFuzzSlider" type="range" min="0" max="100" value="70" />
         </label>
         <label>
           Virtual Distance
@@ -140,7 +157,7 @@ document.querySelector("#app").innerHTML = `
 
     <section class="panel patch-summary">
       <h2>Plain Patch Summary</h2>
-      <p id="patchSummaryText">Stable audio core with analyser meters. No sound engine running. Press Start Oscillator or Start Noise to test one quiet source. Output is set to 70%, clamped to a safe maximum. Low-pass cutoff is set to 2600 Hz and can now open up to 16000 Hz. Resonance is set to 0.7. Feedback is off. The feedback loop now includes gentle internal soft saturation. The spectral meters listen after the master Output control. The spectral faders are visual only. No fake self-oscillation is connected.</p>
+      <p id="patchSummaryText">Stable audio core with analyser meters. No sound engine running. Press Start Oscillator or Start Noise to test one quiet source. Output is set to 70%, clamped to a safe maximum. Low-pass cutoff is set to 2600 Hz and now shapes both before and after the fuzz stage. Resonance reaches 40 for a strong audible peak. Buttery Fuzz is set to 70% and uses rounded saturation instead of hard clipping. A stronger left/right stereo-width branch is active after the fuzz mix. Feedback is not connected in v0.20. The spectral meters listen after the master Output control. The spectral faders are visual only. No fake self-oscillation is connected.</p>
     </section>
   </main>
 `;
@@ -150,7 +167,7 @@ const noiseButton = document.querySelector("#noiseButton");
 const panicButton = document.querySelector("#panicButton");
 const cutoffSlider = document.querySelector("#cutoffSlider");
 const resonanceSlider = document.querySelector("#resonanceSlider");
-const feedbackSlider = document.querySelector("#feedbackSlider");
+const butteryFuzzSlider = document.querySelector("#butteryFuzzSlider");
 const outputSlider = document.querySelector("#outputSlider");
 const patchSummaryText = document.querySelector("#patchSummaryText");
 const meterFills = document.querySelectorAll(".meter-fill");
@@ -185,8 +202,8 @@ resonanceSlider.addEventListener("input", () => {
   updatePatchSummary();
 });
 
-feedbackSlider.addEventListener("input", () => {
-  updateFeedbackFromSlider();
+butteryFuzzSlider.addEventListener("input", () => {
+  updateButteryFuzzFromSlider();
   updatePatchSummary();
 });
 
@@ -220,25 +237,57 @@ async function ensureAudioContext() {
   if (!toneFilter) {
     toneFilter = audioContext.createBiquadFilter();
     toneFilter.type = "lowpass";
-    toneFilter.connect(masterGain);
+
+    butteryFuzzInputGain = audioContext.createGain();
+    butteryFuzz = audioContext.createWaveShaper();
+    butteryFuzzOutputGain = audioContext.createGain();
+    butteryFuzzDryGain = audioContext.createGain();
+    butteryFuzzWetGain = audioContext.createGain();
+    butteryFuzzMixGain = audioContext.createGain();
+    postFuzzFilter = audioContext.createBiquadFilter();
+    stereoCenterGain = audioContext.createGain();
+    stereoLeftDelay = audioContext.createDelay(0.02);
+    stereoLeftPanner = audioContext.createStereoPanner();
+    stereoLeftGain = audioContext.createGain();
+    stereoRightDelay = audioContext.createDelay(0.02);
+    stereoRightPanner = audioContext.createStereoPanner();
+    stereoRightGain = audioContext.createGain();
+
+    butteryFuzz.curve = createButteryFuzzCurve();
+    butteryFuzz.oversample = "2x";
+    butteryFuzzOutputGain.gain.setValueAtTime(FUZZ_OUTPUT_TRIM, audioContext.currentTime);
+    butteryFuzzMixGain.gain.setValueAtTime(1, audioContext.currentTime);
+    postFuzzFilter.type = "lowpass";
+    postFuzzFilter.Q.setValueAtTime(POST_FUZZ_FILTER_Q, audioContext.currentTime);
+    stereoCenterGain.gain.setValueAtTime(STEREO_CENTER_GAIN, audioContext.currentTime);
+    stereoLeftDelay.delayTime.setValueAtTime(STEREO_LEFT_DELAY_SECONDS, audioContext.currentTime);
+    stereoLeftPanner.pan.setValueAtTime(-0.85, audioContext.currentTime);
+    stereoLeftGain.gain.setValueAtTime(STEREO_SPREAD_GAIN, audioContext.currentTime);
+    stereoRightDelay.delayTime.setValueAtTime(STEREO_RIGHT_DELAY_SECONDS, audioContext.currentTime);
+    stereoRightPanner.pan.setValueAtTime(0.85, audioContext.currentTime);
+    stereoRightGain.gain.setValueAtTime(STEREO_SPREAD_GAIN, audioContext.currentTime);
+
+    toneFilter.connect(butteryFuzzDryGain);
+    toneFilter.connect(butteryFuzzInputGain);
+    butteryFuzzInputGain.connect(butteryFuzz);
+    butteryFuzz.connect(butteryFuzzOutputGain);
+    butteryFuzzOutputGain.connect(butteryFuzzWetGain);
+    butteryFuzzDryGain.connect(butteryFuzzMixGain);
+    butteryFuzzWetGain.connect(butteryFuzzMixGain);
+    butteryFuzzMixGain.connect(postFuzzFilter);
+    postFuzzFilter.connect(stereoCenterGain);
+    postFuzzFilter.connect(stereoLeftDelay);
+    postFuzzFilter.connect(stereoRightDelay);
+    stereoCenterGain.connect(masterGain);
+    stereoLeftDelay.connect(stereoLeftPanner);
+    stereoLeftPanner.connect(stereoLeftGain);
+    stereoLeftGain.connect(masterGain);
+    stereoRightDelay.connect(stereoRightPanner);
+    stereoRightPanner.connect(stereoRightGain);
+    stereoRightGain.connect(masterGain);
+
     updateToneFilterFromControls();
-  }
-
-  if (!feedbackDelay) {
-    feedbackDelay = audioContext.createDelay(0.08);
-    feedbackSaturation = audioContext.createWaveShaper();
-    feedbackGain = audioContext.createGain();
-
-    feedbackDelay.delayTime.setValueAtTime(FEEDBACK_DELAY_SECONDS, audioContext.currentTime);
-    feedbackSaturation.curve = createSoftFeedbackSaturationCurve();
-    feedbackSaturation.oversample = "2x";
-    feedbackGain.gain.setValueAtTime(0, audioContext.currentTime);
-
-    toneFilter.connect(feedbackDelay);
-    feedbackDelay.connect(feedbackSaturation);
-    feedbackSaturation.connect(feedbackGain);
-    feedbackGain.connect(toneFilter);
-    updateFeedbackFromSlider();
+    updateButteryFuzzFromSlider();
   }
 
   if (audioContext.state === "suspended") {
@@ -258,18 +307,26 @@ function updateToneFilterFromControls() {
 
   toneFilter.frequency.setTargetAtTime(cutoffFrequency, audioContext.currentTime, 0.015);
   toneFilter.Q.setTargetAtTime(resonanceAmount, audioContext.currentTime, 0.015);
+
+  if (postFuzzFilter) {
+    postFuzzFilter.frequency.setTargetAtTime(cutoffFrequency, audioContext.currentTime, 0.015);
+    postFuzzFilter.Q.setTargetAtTime(POST_FUZZ_FILTER_Q, audioContext.currentTime, 0.015);
+  }
 }
 
-function updateFeedbackFromSlider() {
-  if (!feedbackGain || !audioContext) {
+function updateButteryFuzzFromSlider() {
+  if (!butteryFuzzInputGain || !butteryFuzzDryGain || !butteryFuzzWetGain || !audioContext) {
     return;
   }
 
-  const sliderValue = Number(feedbackSlider.value) / 100;
-  const shapedFeedbackValue = sliderValue === 0 ? 0 : Math.pow(sliderValue, FEEDBACK_CURVE_EXPONENT);
-  const safeFeedbackLevel = Math.min(shapedFeedbackValue * MAX_SAFE_FEEDBACK_GAIN, MAX_SAFE_FEEDBACK_GAIN);
+  const fuzzAmount = Number(butteryFuzzSlider.value) / 100;
+  const fuzzInputGain = FUZZ_MIN_INPUT_GAIN + fuzzAmount * (FUZZ_MAX_INPUT_GAIN - FUZZ_MIN_INPUT_GAIN);
+  const dryLevel = Math.max(0.35, 1 - fuzzAmount * 0.6);
+  const wetLevel = fuzzAmount * 0.95;
 
-  feedbackGain.gain.setTargetAtTime(safeFeedbackLevel, audioContext.currentTime, 0.02);
+  butteryFuzzInputGain.gain.setTargetAtTime(fuzzInputGain, audioContext.currentTime, 0.015);
+  butteryFuzzDryGain.gain.setTargetAtTime(dryLevel, audioContext.currentTime, 0.015);
+  butteryFuzzWetGain.gain.setTargetAtTime(wetLevel, audioContext.currentTime, 0.015);
 }
 
 function updateMasterGainFromSlider() {
@@ -291,16 +348,6 @@ function silenceMasterOutput() {
   masterGain.gain.cancelScheduledValues(audioContext.currentTime);
   masterGain.gain.setValueAtTime(masterGain.gain.value, audioContext.currentTime);
   masterGain.gain.linearRampToValueAtTime(0, audioContext.currentTime + PANIC_RAMP_SECONDS);
-}
-
-function silenceFeedback() {
-  if (!feedbackGain || !audioContext) {
-    return;
-  }
-
-  feedbackGain.gain.cancelScheduledValues(audioContext.currentTime);
-  feedbackGain.gain.setValueAtTime(feedbackGain.gain.value, audioContext.currentTime);
-  feedbackGain.gain.linearRampToValueAtTime(0, audioContext.currentTime + PANIC_RAMP_SECONDS);
 }
 
 function startAnalyserMeters() {
@@ -355,14 +402,17 @@ function getAnalyserBandLevel(bandIndex) {
   return Math.round((total / count / 255) * 100);
 }
 
-function createSoftFeedbackSaturationCurve() {
-  const curveLength = 1024;
+function createButteryFuzzCurve() {
+  const curveLength = 2048;
   const curve = new Float32Array(curveLength);
-  const drive = 1.6;
 
   for (let index = 0; index < curveLength; index += 1) {
     const x = (index / (curveLength - 1)) * 2 - 1;
-    curve[index] = Math.tanh(x * drive) / Math.tanh(drive);
+    const driven = x * FUZZ_CURVE_DRIVE;
+    const rounded = Math.tanh(driven) / Math.tanh(FUZZ_CURVE_DRIVE);
+    const softArc = (2 / Math.PI) * Math.atan(driven * 0.85);
+    const warmEven = 0.045 * (Math.tanh((driven + 0.25) * 0.7) - Math.tanh(0.25 * 0.7));
+    curve[index] = Math.max(-1, Math.min(1, rounded * 0.72 + softArc * 0.24 + warmEven));
   }
 
   return curve;
@@ -373,7 +423,7 @@ async function startOscillator() {
 
   wasPanicStopped = false;
   updateMasterGainFromSlider();
-  updateFeedbackFromSlider();
+  updateButteryFuzzFromSlider();
 
   oscillator = context.createOscillator();
   oscillatorGain = context.createGain();
@@ -435,7 +485,7 @@ async function startNoise() {
 
   wasPanicStopped = false;
   updateMasterGainFromSlider();
-  updateFeedbackFromSlider();
+  updateButteryFuzzFromSlider();
 
   noiseSource = context.createBufferSource();
   noiseGain = context.createGain();
@@ -493,11 +543,6 @@ function stopNoise(options = {}) {
 
 function panicStop() {
   wasPanicStopped = true;
-  feedbackSlider.value = "0";
-
-  if (audioContext) {
-    silenceFeedback();
-  }
 
   if (audioContext && masterGain) {
     silenceMasterOutput();
@@ -527,50 +572,52 @@ function createWhiteNoiseBuffer(context) {
   return buffer;
 }
 
-function getFeedbackSummaryText() {
-  const feedbackPercent = Number(feedbackSlider.value);
+function getFuzzSummaryText() {
+  const fuzzPercent = Number(butteryFuzzSlider.value);
 
-  if (feedbackPercent <= 0) {
-    return "Feedback is off.";
+  if (fuzzPercent <= 0) {
+    return "Buttery Fuzz is off.";
   }
 
-  return `Protected feedback is active at ${feedbackPercent}%, shaped for earlier response, capped to ${MAX_SAFE_FEEDBACK_GAIN} gain, routed through a ${FEEDBACK_DELAY_SECONDS}s delay, and gently soft-saturated inside the loop.`;
+  const fuzzAmount = fuzzPercent / 100;
+  const fuzzInputGain = FUZZ_MIN_INPUT_GAIN + fuzzAmount * (FUZZ_MAX_INPUT_GAIN - FUZZ_MIN_INPUT_GAIN);
+
+  return `Buttery Fuzz is set to ${fuzzPercent}%, with ${fuzzInputGain.toFixed(2)}x input drive, rounded saturation, dry blend kept in the sound, post-fuzz cutoff shaping, and true left/right stereo spread.`;
 }
 
 function updatePatchSummary() {
   const outputPercent = outputSlider.value;
   const cutoffFrequency = cutoffSlider.value;
   const resonanceAmount = resonanceSlider.value;
-  const feedbackSummary = getFeedbackSummaryText();
+  const fuzzSummary = getFuzzSummaryText();
   const safetyText = `Output is clamped to a safe maximum gain of ${MAX_SAFE_MASTER_GAIN}.`;
   const spectralText = "The spectral meters are analyser-driven from the real output. The spectral faders are visual only and do not control sound yet.";
-  const feedbackCharacterText = "The feedback loop uses gentle internal soft saturation to make feedback less brittle without adding a separate distortion effect.";
-  const notYetText = "No vocoder, effects, MIDI, microphone, sensors, 10 real filter bands, filter mode switching, or fake self-oscillation is connected yet.";
+  const notYetText = "No feedback loop, vocoder, delay/reverb effects, MIDI, microphone, sensors, 10 real filter bands, filter mode switching, or fake self-oscillation is connected yet.";
 
   if (wasPanicStopped && !isOscillatorRunning && !isNoiseRunning) {
     patchSummaryText.textContent =
-      `Panic Stop used. Oscillator and noise are stopped, feedback has been reset to 0%, and output has been silenced. The analyser meters will fall as the output reaches silence. Press Start Oscillator or Start Noise to resume normal use. ${safetyText} Low-pass cutoff is set to ${cutoffFrequency} Hz. Resonance is set to ${resonanceAmount}. ${notYetText}`;
+      `Panic Stop used. Oscillator and noise are stopped, and output has been silenced. The analyser meters will fall as the output reaches silence. Press Start Oscillator or Start Noise to resume normal use. ${fuzzSummary} ${safetyText} Low-pass cutoff is set to ${cutoffFrequency} Hz. Resonance is set to ${resonanceAmount}. ${notYetText}`;
     return;
   }
 
   if (isOscillatorRunning && isNoiseRunning) {
     patchSummaryText.textContent =
-      `Stable audio core. One quiet sawtooth oscillator and one quiet white noise source are running through one low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the master Output control set to ${outputPercent}%. ${feedbackSummary} ${safetyText} ${feedbackCharacterText} ${spectralText} ${notYetText}`;
+      `One quiet sawtooth oscillator and one quiet white noise source are running through one low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the Buttery Fuzz stage, then through a post-fuzz low-pass filter that follows Cutoff, then through the master Output control set to ${outputPercent}%. ${fuzzSummary} ${safetyText} ${spectralText} ${notYetText}`;
     return;
   }
 
   if (isOscillatorRunning) {
     patchSummaryText.textContent =
-      `Stable audio core. One quiet sawtooth oscillator is running at A3 through one low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the master Output control set to ${outputPercent}%. ${feedbackSummary} ${safetyText} ${feedbackCharacterText} ${spectralText} ${notYetText}`;
+      `One quiet sawtooth oscillator is running at A3 through one low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the Buttery Fuzz stage, then through a post-fuzz low-pass filter that follows Cutoff, then through the master Output control set to ${outputPercent}%. ${fuzzSummary} ${safetyText} ${spectralText} ${notYetText}`;
     return;
   }
 
   if (isNoiseRunning) {
     patchSummaryText.textContent =
-      `Stable audio core. One quiet white noise source is running through one low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the master Output control set to ${outputPercent}%. ${feedbackSummary} ${safetyText} ${feedbackCharacterText} ${spectralText} ${notYetText}`;
+      `One quiet white noise source is running through one low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the Buttery Fuzz stage, then through a post-fuzz low-pass filter that follows Cutoff, then through the master Output control set to ${outputPercent}%. ${fuzzSummary} ${safetyText} ${spectralText} ${notYetText}`;
     return;
   }
 
   patchSummaryText.textContent =
-    `Stable audio core with analyser meters. No sound engine running. Press Start Oscillator or Start Noise to test one quiet source. Output is set to ${outputPercent}%. ${feedbackSummary} ${safetyText} Low-pass cutoff is set to ${cutoffFrequency} Hz. Resonance is set to ${resonanceAmount}. ${feedbackCharacterText} ${spectralText} No fake self-oscillation is connected yet.`;
+    `Stable audio core with analyser meters. No sound engine running. Press Start Oscillator or Start Noise to test one quiet source. Output is set to ${outputPercent}%. ${fuzzSummary} ${safetyText} Low-pass cutoff is set to ${cutoffFrequency} Hz. Resonance is set to ${resonanceAmount}. ${spectralText} ${notYetText}`;
 }
