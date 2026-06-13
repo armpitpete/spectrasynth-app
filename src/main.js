@@ -9,12 +9,13 @@ const ANALYSER_MAX_DECIBELS = -35;
 const ANALYSER_BAND_COUNT = 10;
 const ANALYSER_MAX_FREQUENCY = 10000;
 const FUZZ_MIN_INPUT_GAIN = 1.0;
-const FUZZ_MAX_INPUT_GAIN = 3.2;
-const FUZZ_OUTPUT_TRIM = 0.22;
-const FUZZ_CURVE_DRIVE = 1.5;
-const STEREO_SPREAD_DELAY_SECONDS = 0.006;
-const STEREO_CENTER_GAIN = 0.78;
-const STEREO_SPREAD_GAIN = 0.22;
+const FUZZ_MAX_INPUT_GAIN = 12.0;
+const FUZZ_OUTPUT_TRIM = 0.16;
+const FUZZ_CURVE_DRIVE = 2.8;
+const STEREO_LEFT_DELAY_SECONDS = 0.004;
+const STEREO_RIGHT_DELAY_SECONDS = 0.009;
+const STEREO_CENTER_GAIN = 0.62;
+const STEREO_SPREAD_GAIN = 0.42;
 
 const bands = [
   { number: 1, label: "Low", height: 28 },
@@ -38,9 +39,12 @@ let butteryFuzzDryGain = null;
 let butteryFuzzWetGain = null;
 let butteryFuzzMixGain = null;
 let stereoCenterGain = null;
-let stereoSpreadDelay = null;
-let stereoSpreadPanner = null;
-let stereoSpreadGain = null;
+let stereoLeftDelay = null;
+let stereoLeftPanner = null;
+let stereoLeftGain = null;
+let stereoRightDelay = null;
+let stereoRightPanner = null;
+let stereoRightGain = null;
 let masterGain = null;
 let analyser = null;
 let analyserData = null;
@@ -85,7 +89,7 @@ document.querySelector("#app").innerHTML = `
         </label>
         <label>
           Resonance
-          <input id="resonanceSlider" type="range" min="0.4" max="8" step="0.1" value="0.7" />
+          <input id="resonanceSlider" type="range" min="0.4" max="18" step="0.1" value="1.2" />
         </label>
         <label>
           Buttery Fuzz
@@ -151,7 +155,7 @@ document.querySelector("#app").innerHTML = `
 
     <section class="panel patch-summary">
       <h2>Plain Patch Summary</h2>
-      <p id="patchSummaryText">Stable audio core with analyser meters. No sound engine running. Press Start Oscillator or Start Noise to test one quiet source. Output is set to 70%, clamped to a safe maximum. Low-pass cutoff is set to 2600 Hz and can now open up to 16000 Hz. Buttery Fuzz is set to 70%. A small stereo-width branch is active after the fuzz mix. Feedback is not connected in v0.20. The spectral meters listen after the master Output control. The spectral faders are visual only. No fake self-oscillation is connected.</p>
+      <p id="patchSummaryText">Stable audio core with analyser meters. No sound engine running. Press Start Oscillator or Start Noise to test one quiet source. Output is set to 70%, clamped to a safe maximum. Low-pass cutoff is set to 2600 Hz and can now open up to 16000 Hz. Resonance now reaches 18 for a stronger audible peak. Buttery Fuzz is set to 70%. A stronger left/right stereo-width branch is active after the fuzz mix. Feedback is not connected in v0.20. The spectral meters listen after the master Output control. The spectral faders are visual only. No fake self-oscillation is connected.</p>
     </section>
   </main>
 `;
@@ -239,18 +243,24 @@ async function ensureAudioContext() {
     butteryFuzzWetGain = audioContext.createGain();
     butteryFuzzMixGain = audioContext.createGain();
     stereoCenterGain = audioContext.createGain();
-    stereoSpreadDelay = audioContext.createDelay(0.02);
-    stereoSpreadPanner = audioContext.createStereoPanner();
-    stereoSpreadGain = audioContext.createGain();
+    stereoLeftDelay = audioContext.createDelay(0.02);
+    stereoLeftPanner = audioContext.createStereoPanner();
+    stereoLeftGain = audioContext.createGain();
+    stereoRightDelay = audioContext.createDelay(0.02);
+    stereoRightPanner = audioContext.createStereoPanner();
+    stereoRightGain = audioContext.createGain();
 
     butteryFuzz.curve = createButteryFuzzCurve();
     butteryFuzz.oversample = "2x";
     butteryFuzzOutputGain.gain.setValueAtTime(FUZZ_OUTPUT_TRIM, audioContext.currentTime);
     butteryFuzzMixGain.gain.setValueAtTime(1, audioContext.currentTime);
     stereoCenterGain.gain.setValueAtTime(STEREO_CENTER_GAIN, audioContext.currentTime);
-    stereoSpreadDelay.delayTime.setValueAtTime(STEREO_SPREAD_DELAY_SECONDS, audioContext.currentTime);
-    stereoSpreadPanner.pan.setValueAtTime(0.8, audioContext.currentTime);
-    stereoSpreadGain.gain.setValueAtTime(STEREO_SPREAD_GAIN, audioContext.currentTime);
+    stereoLeftDelay.delayTime.setValueAtTime(STEREO_LEFT_DELAY_SECONDS, audioContext.currentTime);
+    stereoLeftPanner.pan.setValueAtTime(-0.85, audioContext.currentTime);
+    stereoLeftGain.gain.setValueAtTime(STEREO_SPREAD_GAIN, audioContext.currentTime);
+    stereoRightDelay.delayTime.setValueAtTime(STEREO_RIGHT_DELAY_SECONDS, audioContext.currentTime);
+    stereoRightPanner.pan.setValueAtTime(0.85, audioContext.currentTime);
+    stereoRightGain.gain.setValueAtTime(STEREO_SPREAD_GAIN, audioContext.currentTime);
 
     toneFilter.connect(butteryFuzzDryGain);
     toneFilter.connect(butteryFuzzInputGain);
@@ -260,11 +270,15 @@ async function ensureAudioContext() {
     butteryFuzzDryGain.connect(butteryFuzzMixGain);
     butteryFuzzWetGain.connect(butteryFuzzMixGain);
     butteryFuzzMixGain.connect(stereoCenterGain);
-    butteryFuzzMixGain.connect(stereoSpreadDelay);
+    butteryFuzzMixGain.connect(stereoLeftDelay);
+    butteryFuzzMixGain.connect(stereoRightDelay);
     stereoCenterGain.connect(masterGain);
-    stereoSpreadDelay.connect(stereoSpreadPanner);
-    stereoSpreadPanner.connect(stereoSpreadGain);
-    stereoSpreadGain.connect(masterGain);
+    stereoLeftDelay.connect(stereoLeftPanner);
+    stereoLeftPanner.connect(stereoLeftGain);
+    stereoLeftGain.connect(masterGain);
+    stereoRightDelay.connect(stereoRightPanner);
+    stereoRightPanner.connect(stereoRightGain);
+    stereoRightGain.connect(masterGain);
 
     updateToneFilterFromControls();
     updateButteryFuzzFromSlider();
@@ -296,8 +310,8 @@ function updateButteryFuzzFromSlider() {
 
   const fuzzAmount = Number(butteryFuzzSlider.value) / 100;
   const fuzzInputGain = FUZZ_MIN_INPUT_GAIN + fuzzAmount * (FUZZ_MAX_INPUT_GAIN - FUZZ_MIN_INPUT_GAIN);
-  const dryLevel = 1 - fuzzAmount * 0.65;
-  const wetLevel = fuzzAmount;
+  const dryLevel = 1 - fuzzAmount * 0.8;
+  const wetLevel = fuzzAmount * 1.15;
 
   butteryFuzzInputGain.gain.setTargetAtTime(fuzzInputGain, audioContext.currentTime, 0.015);
   butteryFuzzDryGain.gain.setTargetAtTime(dryLevel, audioContext.currentTime, 0.015);
@@ -553,7 +567,7 @@ function getFuzzSummaryText() {
   const fuzzAmount = fuzzPercent / 100;
   const fuzzInputGain = FUZZ_MIN_INPUT_GAIN + fuzzAmount * (FUZZ_MAX_INPUT_GAIN - FUZZ_MIN_INPUT_GAIN);
 
-  return `Buttery Fuzz is set to ${fuzzPercent}%, with ${fuzzInputGain.toFixed(2)}x input drive, wet/dry blend, and a small stereo-width branch after the fuzz mix.`;
+  return `Buttery Fuzz is set to ${fuzzPercent}%, with ${fuzzInputGain.toFixed(2)}x input drive, wet/dry blend, stronger tanh shaping, and true left/right stereo spread after the fuzz mix.`;
 }
 
 function updatePatchSummary() {
