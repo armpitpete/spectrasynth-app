@@ -8,6 +8,8 @@ const ANALYSER_MIN_DECIBELS = -90;
 const ANALYSER_MAX_DECIBELS = -35;
 const ANALYSER_BAND_COUNT = 10;
 const ANALYSER_MAX_FREQUENCY = 10000;
+const CUTOFF_MIN_FREQUENCY = 120;
+const CUTOFF_MAX_FREQUENCY = 16000;
 const FUZZ_MIN_INPUT_GAIN = 1.0;
 const FUZZ_MAX_INPUT_GAIN = 26.0;
 const FUZZ_OUTPUT_TRIM = 0.28;
@@ -69,7 +71,7 @@ document.querySelector("#app").innerHTML = `
         <h1>SpectraSynth</h1>
         <p class="subtitle">Visible spectral instrument</p>
       </div>
-      <div class="version-pill">v0.20 buttery fuzz distortion</div>
+      <div class="version-pill">v0.21 cutoff response curve</div>
     </header>
 
     <section class="control-grid">
@@ -87,7 +89,7 @@ document.querySelector("#app").innerHTML = `
         <h2>Movement</h2>
         <label>
           Cutoff / Brightness
-          <input id="cutoffSlider" type="range" min="120" max="16000" value="2600" />
+          <input id="cutoffSlider" type="range" min="0" max="100" value="63" />
         </label>
         <label>
           Resonance
@@ -157,7 +159,7 @@ document.querySelector("#app").innerHTML = `
 
     <section class="panel patch-summary">
       <h2>Plain Patch Summary</h2>
-      <p id="patchSummaryText">Stable audio core with analyser meters. No sound engine running. Press Start Oscillator or Start Noise to test one quiet source. Output is set to 70%, clamped to a safe maximum. Low-pass cutoff is set to 2600 Hz and now shapes both before and after the fuzz stage. Resonance reaches 40 for a strong audible peak. Buttery Fuzz is set to 70% and uses rounded saturation instead of hard clipping. A stronger left/right stereo-width branch is active after the fuzz mix. Feedback is not connected in v0.20. The spectral meters listen after the master Output control. The spectral faders are visual only. No fake self-oscillation is connected.</p>
+      <p id="patchSummaryText">Stable audio core with analyser meters. No sound engine running. Press Start Oscillator or Start Noise to test one quiet source. Output is set to 70%, clamped to a safe maximum. Cutoff / Brightness now uses a perceptual response curve from 120 Hz to 16000 Hz, so the useful range is spread across the whole slider. The current mapped cutoff is about 2625 Hz and shapes both before and after the fuzz stage. Resonance reaches 40 for a strong audible peak. Buttery Fuzz is set to 70% and uses rounded saturation instead of hard clipping. Feedback is not connected in v0.21. The spectral meters listen after the master Output control. The spectral faders are visual only. No fake self-oscillation is connected.</p>
     </section>
   </main>
 `;
@@ -297,12 +299,21 @@ async function ensureAudioContext() {
   return audioContext;
 }
 
+function getCutoffFrequencyFromSlider() {
+  const sliderAmount = Number(cutoffSlider.value) / 100;
+  return CUTOFF_MIN_FREQUENCY * Math.pow(CUTOFF_MAX_FREQUENCY / CUTOFF_MIN_FREQUENCY, sliderAmount);
+}
+
+function getRoundedCutoffFrequency() {
+  return Math.round(getCutoffFrequencyFromSlider());
+}
+
 function updateToneFilterFromControls() {
   if (!toneFilter || !audioContext) {
     return;
   }
 
-  const cutoffFrequency = Number(cutoffSlider.value);
+  const cutoffFrequency = getCutoffFrequencyFromSlider();
   const resonanceAmount = Number(resonanceSlider.value);
 
   toneFilter.frequency.setTargetAtTime(cutoffFrequency, audioContext.currentTime, 0.015);
@@ -587,37 +598,38 @@ function getFuzzSummaryText() {
 
 function updatePatchSummary() {
   const outputPercent = outputSlider.value;
-  const cutoffFrequency = cutoffSlider.value;
+  const cutoffFrequency = getRoundedCutoffFrequency();
   const resonanceAmount = resonanceSlider.value;
   const fuzzSummary = getFuzzSummaryText();
   const safetyText = `Output is clamped to a safe maximum gain of ${MAX_SAFE_MASTER_GAIN}.`;
   const spectralText = "The spectral meters are analyser-driven from the real output. The spectral faders are visual only and do not control sound yet.";
+  const cutoffText = `Cutoff / Brightness uses a perceptual slider curve from ${CUTOFF_MIN_FREQUENCY} Hz to ${CUTOFF_MAX_FREQUENCY} Hz and is currently mapped to ${cutoffFrequency} Hz.`;
   const notYetText = "No feedback loop, vocoder, delay/reverb effects, MIDI, microphone, sensors, 10 real filter bands, filter mode switching, or fake self-oscillation is connected yet.";
 
   if (wasPanicStopped && !isOscillatorRunning && !isNoiseRunning) {
     patchSummaryText.textContent =
-      `Panic Stop used. Oscillator and noise are stopped, and output has been silenced. The analyser meters will fall as the output reaches silence. Press Start Oscillator or Start Noise to resume normal use. ${fuzzSummary} ${safetyText} Low-pass cutoff is set to ${cutoffFrequency} Hz. Resonance is set to ${resonanceAmount}. ${notYetText}`;
+      `Panic Stop used. Oscillator and noise are stopped, and output has been silenced. The analyser meters will fall as the output reaches silence. Press Start Oscillator or Start Noise to resume normal use. ${fuzzSummary} ${safetyText} ${cutoffText} Resonance is set to ${resonanceAmount}. ${notYetText}`;
     return;
   }
 
   if (isOscillatorRunning && isNoiseRunning) {
     patchSummaryText.textContent =
-      `One quiet sawtooth oscillator and one quiet white noise source are running through one low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the Buttery Fuzz stage, then through a post-fuzz low-pass filter that follows Cutoff, then through the master Output control set to ${outputPercent}%. ${fuzzSummary} ${safetyText} ${spectralText} ${notYetText}`;
+      `One quiet sawtooth oscillator and one quiet white noise source are running through one low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the Buttery Fuzz stage, then through a post-fuzz low-pass filter that follows Cutoff, then through the master Output control set to ${outputPercent}%. ${fuzzSummary} ${safetyText} ${cutoffText} ${spectralText} ${notYetText}`;
     return;
   }
 
   if (isOscillatorRunning) {
     patchSummaryText.textContent =
-      `One quiet sawtooth oscillator is running at A3 through one low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the Buttery Fuzz stage, then through a post-fuzz low-pass filter that follows Cutoff, then through the master Output control set to ${outputPercent}%. ${fuzzSummary} ${safetyText} ${spectralText} ${notYetText}`;
+      `One quiet sawtooth oscillator is running at A3 through one low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the Buttery Fuzz stage, then through a post-fuzz low-pass filter that follows Cutoff, then through the master Output control set to ${outputPercent}%. ${fuzzSummary} ${safetyText} ${cutoffText} ${spectralText} ${notYetText}`;
     return;
   }
 
   if (isNoiseRunning) {
     patchSummaryText.textContent =
-      `One quiet white noise source is running through one low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the Buttery Fuzz stage, then through a post-fuzz low-pass filter that follows Cutoff, then through the master Output control set to ${outputPercent}%. ${fuzzSummary} ${safetyText} ${spectralText} ${notYetText}`;
+      `One quiet white noise source is running through one low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the Buttery Fuzz stage, then through a post-fuzz low-pass filter that follows Cutoff, then through the master Output control set to ${outputPercent}%. ${fuzzSummary} ${safetyText} ${cutoffText} ${spectralText} ${notYetText}`;
     return;
   }
 
   patchSummaryText.textContent =
-    `Stable audio core with analyser meters. No sound engine running. Press Start Oscillator or Start Noise to test one quiet source. Output is set to ${outputPercent}%. ${fuzzSummary} ${safetyText} Low-pass cutoff is set to ${cutoffFrequency} Hz. Resonance is set to ${resonanceAmount}. ${spectralText} ${notYetText}`;
+    `Stable audio core with analyser meters. No sound engine running. Press Start Oscillator or Start Noise to test one quiet source. Output is set to ${outputPercent}%. ${fuzzSummary} ${safetyText} ${cutoffText} Resonance is set to ${resonanceAmount}. ${spectralText} ${notYetText}`;
 }
