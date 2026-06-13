@@ -1,8 +1,5 @@
 import "./styles.css";
 
-const SELF_OSCILLATION_THRESHOLD = 6;
-const MAX_SELF_OSCILLATION_LEVEL = 0.025;
-
 const bands = [
   { number: 1, label: "Low", height: 28 },
   { number: 2, label: "Low-Mid", height: 34 },
@@ -28,9 +25,6 @@ let noiseSource = null;
 let noiseGain = null;
 let isNoiseRunning = false;
 
-let selfOscillator = null;
-let selfOscillationGain = null;
-
 document.querySelector("#app").innerHTML = `
   <main class="app-shell">
     <header class="app-header">
@@ -39,7 +33,7 @@ document.querySelector("#app").innerHTML = `
         <h1>SpectraSynth</h1>
         <p class="subtitle">Visible spectral instrument</p>
       </div>
-      <div class="version-pill">v0.10 safe self-oscillation</div>
+      <div class="version-pill">v0.10 fake feedback removed</div>
     </header>
 
     <section class="control-grid">
@@ -122,7 +116,7 @@ document.querySelector("#app").innerHTML = `
 
     <section class="panel patch-summary">
       <h2>Plain Patch Summary</h2>
-      <p id="patchSummaryText">No sound engine running. Press Start Oscillator or Start Noise to test one quiet source. Output is set to 70%. Low-pass cutoff is set to 2600 Hz. Resonance is set to 0.7. Self-oscillation appears above resonance 6.0.</p>
+      <p id="patchSummaryText">No sound engine running. Press Start Oscillator or Start Noise to test one quiet source. Output is set to 70%. Low-pass cutoff is set to 2600 Hz. Resonance is set to 0.7. No fake self-oscillation or feedback is active.</p>
     </section>
   </main>
 `;
@@ -189,21 +183,8 @@ async function ensureAudioContext() {
     toneFilter = audioContext.createBiquadFilter();
     toneFilter.type = "lowpass";
     toneFilter.connect(masterGain);
+    updateToneFilterFromControls();
   }
-
-  if (!selfOscillator) {
-    selfOscillator = audioContext.createOscillator();
-    selfOscillationGain = audioContext.createGain();
-
-    selfOscillator.type = "sine";
-    selfOscillationGain.gain.setValueAtTime(0, audioContext.currentTime);
-
-    selfOscillator.connect(selfOscillationGain);
-    selfOscillationGain.connect(masterGain);
-    selfOscillator.start();
-  }
-
-  updateToneFilterFromControls();
 
   if (audioContext.state === "suspended") {
     await audioContext.resume();
@@ -222,22 +203,6 @@ function updateToneFilterFromControls() {
 
   toneFilter.frequency.setTargetAtTime(cutoffFrequency, audioContext.currentTime, 0.015);
   toneFilter.Q.setTargetAtTime(resonanceAmount, audioContext.currentTime, 0.015);
-
-  updateSelfOscillationFromControls(cutoffFrequency, resonanceAmount);
-}
-
-function updateSelfOscillationFromControls(cutoffFrequency, resonanceAmount) {
-  if (!selfOscillator || !selfOscillationGain || !audioContext) {
-    return;
-  }
-
-  const resonanceOverThreshold = Math.max(0, resonanceAmount - SELF_OSCILLATION_THRESHOLD);
-  const resonanceRange = Number(resonanceSlider.max) - SELF_OSCILLATION_THRESHOLD;
-  const selfOscillationDepth = Math.min(1, resonanceOverThreshold / resonanceRange);
-  const selfOscillationLevel = selfOscillationDepth * MAX_SELF_OSCILLATION_LEVEL;
-
-  selfOscillator.frequency.setTargetAtTime(cutoffFrequency, audioContext.currentTime, 0.015);
-  selfOscillationGain.gain.setTargetAtTime(selfOscillationLevel, audioContext.currentTime, 0.025);
 }
 
 function updateMasterGainFromSlider() {
@@ -368,40 +333,29 @@ function createWhiteNoiseBuffer(context) {
   return buffer;
 }
 
-function getSelfOscillationText() {
-  const resonanceAmount = Number(resonanceSlider.value);
-
-  if (resonanceAmount >= SELF_OSCILLATION_THRESHOLD) {
-    return "Controlled self-oscillation is active and follows the cutoff frequency.";
-  }
-
-  return `Controlled self-oscillation is silent until resonance reaches ${SELF_OSCILLATION_THRESHOLD}.`;
-}
-
 function updatePatchSummary() {
   const outputPercent = outputSlider.value;
   const cutoffFrequency = cutoffSlider.value;
   const resonanceAmount = resonanceSlider.value;
-  const selfOscillationText = getSelfOscillationText();
 
   if (isOscillatorRunning && isNoiseRunning) {
     patchSummaryText.textContent =
-      `One quiet sawtooth oscillator and one quiet white noise source are running through one low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the master Output control set to ${outputPercent}%. ${selfOscillationText} The spectral faders are visual only. No analyser, vocoder, effects, MIDI, microphone, 10 real filter bands, filter mode switching, sensors, or unstable feedback are connected yet.`;
+      `One quiet sawtooth oscillator and one quiet white noise source are running through one low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the master Output control set to ${outputPercent}%. The spectral faders are visual only. No analyser, vocoder, effects, MIDI, microphone, 10 real filter bands, filter mode switching, sensors, fake self-oscillation, or feedback loop is connected yet.`;
     return;
   }
 
   if (isOscillatorRunning) {
     patchSummaryText.textContent =
-      `One quiet sawtooth oscillator is running at A3 through one low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the master Output control set to ${outputPercent}%. ${selfOscillationText} The spectral faders are visual only. No analyser, vocoder, effects, MIDI, microphone, 10 real filter bands, filter mode switching, sensors, or unstable feedback are connected yet.`;
+      `One quiet sawtooth oscillator is running at A3 through one low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the master Output control set to ${outputPercent}%. The spectral faders are visual only. No analyser, vocoder, effects, MIDI, microphone, 10 real filter bands, filter mode switching, sensors, fake self-oscillation, or feedback loop is connected yet.`;
     return;
   }
 
   if (isNoiseRunning) {
     patchSummaryText.textContent =
-      `One quiet white noise source is running through one low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the master Output control set to ${outputPercent}%. ${selfOscillationText} The spectral faders are visual only. No analyser, vocoder, effects, MIDI, microphone, 10 real filter bands, filter mode switching, sensors, or unstable feedback are connected yet.`;
+      `One quiet white noise source is running through one low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the master Output control set to ${outputPercent}%. The spectral faders are visual only. No analyser, vocoder, effects, MIDI, microphone, 10 real filter bands, filter mode switching, sensors, fake self-oscillation, or feedback loop is connected yet.`;
     return;
   }
 
   patchSummaryText.textContent =
-    `No main source is running. Output is set to ${outputPercent}%. Low-pass cutoff is set to ${cutoffFrequency} Hz. Resonance is set to ${resonanceAmount}. ${selfOscillationText} The spectral faders are visual only.`;
+    `No sound engine running. Press Start Oscillator or Start Noise to test one quiet source. Output is set to ${outputPercent}%. Low-pass cutoff is set to ${cutoffFrequency} Hz. Resonance is set to ${resonanceAmount}. The spectral faders are visual only. No fake self-oscillation or feedback loop is connected yet.`;
 }
