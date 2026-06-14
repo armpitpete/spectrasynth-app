@@ -2,16 +2,14 @@ const MAX_DELAY_WET_GAIN = 0.08;
 const MIN_DELAY_SECONDS = 0.07;
 const MAX_DELAY_SECONDS = 0.33;
 const STEREO_SPREAD_DELAY_LIMIT_SECONDS = 0.03;
+const CONNECT_PATCH_FLAG = "__spectraSynthDelayConnectPatched";
 
-const originalConnect = AudioNode.prototype.connect;
-
+let originalConnect = null;
 let masterGainNode = null;
 let delaySourceNode = null;
 let delayNode = null;
 let delayWetGain = null;
 let delaySlider = null;
-let summaryObserver = null;
-let isUpdatingSummary = false;
 
 function getSliderByLabel(labelText) {
   const labels = Array.from(document.querySelectorAll("label"));
@@ -37,41 +35,20 @@ function getDelayTime(delayAmount) {
 function updateDelaySummary() {
   const patchSummaryText = document.querySelector("#patchSummaryText");
 
-  if (!patchSummaryText || isUpdatingSummary) {
+  if (!patchSummaryText || !delaySlider) {
     return;
   }
 
-  const delayPercent = delaySlider ? Number(delaySlider.value) : 0;
+  const delayPercent = Number(delaySlider.value);
   const existingSummary = patchSummaryText.textContent.replace(/ Delay is active:.*$/, "");
-
-  isUpdatingSummary = true;
 
   if (delayPercent <= 0) {
     patchSummaryText.textContent = existingSummary;
-  } else {
-    const delaySeconds = getDelayTime(delayPercent / 100).toFixed(2);
-    patchSummaryText.textContent = `${existingSummary} Delay is active: ${delayPercent}% gives a short quiet echo at about ${delaySeconds} seconds with no feedback loop.`;
-  }
-
-  isUpdatingSummary = false;
-}
-
-function startDelaySummaryObserver() {
-  const patchSummaryText = document.querySelector("#patchSummaryText");
-
-  if (!patchSummaryText || summaryObserver) {
     return;
   }
 
-  summaryObserver = new MutationObserver(() => {
-    updateDelaySummary();
-  });
-
-  summaryObserver.observe(patchSummaryText, {
-    childList: true,
-    characterData: true,
-    subtree: true,
-  });
+  const delaySeconds = getDelayTime(delayPercent / 100).toFixed(2);
+  patchSummaryText.textContent = `${existingSummary} Delay is active: ${delayPercent}% gives a short quiet echo at about ${delaySeconds} seconds with no feedback loop.`;
 }
 
 function updateDelayFromSlider() {
@@ -87,7 +64,7 @@ function updateDelayFromSlider() {
 }
 
 function ensureDelayBranch() {
-  if (!delaySourceNode || !masterGainNode || delayNode || delayWetGain) {
+  if (!delaySourceNode || !masterGainNode || delayNode || delayWetGain || !originalConnect) {
     return;
   }
 
@@ -103,29 +80,63 @@ function ensureDelayBranch() {
   originalConnect.call(delayWetGain, masterGainNode);
 }
 
+function isMasterOutputConnection(source, destination) {
+  return (
+    globalThis.GainNode &&
+    globalThis.AudioDestinationNode &&
+    source instanceof GainNode &&
+    destination instanceof AudioDestinationNode
+  );
+}
+
+function isPostFuzzStereoConnection(source, destination) {
+  return (
+    globalThis.BiquadFilterNode &&
+    globalThis.DelayNode &&
+    source instanceof BiquadFilterNode &&
+    destination instanceof DelayNode &&
+    destination.delayTime.value <= STEREO_SPREAD_DELAY_LIMIT_SECONDS
+  );
+}
+
 function captureExistingGraphConnection(source, destination) {
-  if (!masterGainNode && source instanceof GainNode && destination instanceof AudioDestinationNode) {
+  if (!masterGainNode && isMasterOutputConnection(source, destination)) {
     masterGainNode = source;
     ensureDelayBranch();
     return;
   }
 
-  if (
-    !delaySourceNode &&
-    source instanceof BiquadFilterNode &&
-    destination instanceof DelayNode &&
-    destination.delayTime.value <= STEREO_SPREAD_DELAY_LIMIT_SECONDS
-  ) {
+  if (!delaySourceNode && isPostFuzzStereoConnection(source, destination)) {
     delaySourceNode = source;
     ensureDelayBranch();
   }
 }
 
-AudioNode.prototype.connect = function patchedDelayConnect(destination, ...args) {
-  const connectionResult = originalConnect.call(this, destination, ...args);
-  captureExistingGraphConnection(this, destination);
-  return connectionResult;
-};
+function patchConnectSafely() {
+  if (!globalThis.AudioNode?.prototype?.connect) {
+    return;
+  }
+
+  if (globalThis.AudioNode.prototype[CONNECT_PATCH_FLAG]) {
+    return;
+  }
+
+  originalConnect = globalThis.AudioNode.prototype.connect;
+
+  globalThis.AudioNode.prototype.connect = function patchedDelayConnect(destination, ...args) {
+    const connectionResult = originalConnect.call(this, destination, ...args);
+
+    try {
+      captureExistingGraphConnection(this, destination);
+    } catch {
+      // Delay must never stop the instrument from loading or sounding.
+    }
+
+    return connectionResult;
+  };
+
+  globalThis.AudioNode.prototype[CONNECT_PATCH_FLAG] = true;
+}
 
 function initialiseDelayControl() {
   delaySlider = getSliderByLabel("Delay");
@@ -136,8 +147,12 @@ function initialiseDelayControl() {
 
   delaySlider.id = "delaySlider";
   delaySlider.addEventListener("input", updateDelayFromSlider);
-  startDelaySummaryObserver();
   updateDelayFromSlider();
 }
 
-initialiseDelayControl();
+try {
+  patchConnectSafely();
+  initialiseDelayControl();
+} catch {
+  // Delay must fail parked rather than break the app.
+}
