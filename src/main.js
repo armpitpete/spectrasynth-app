@@ -90,7 +90,7 @@ document.querySelector("#app").innerHTML = `
         <h1>SpectraSynth</h1>
         <p class="subtitle">Visible spectral instrument</p>
       </div>
-      <div class="version-pill">v0.28 extreme noise fuzz safety</div>
+      <div class="version-pill">v0.29 stable extreme noise fuzz safety checkpoint</div>
     </header>
 
     <section class="control-grid">
@@ -178,7 +178,7 @@ document.querySelector("#app").innerHTML = `
 
     <section class="panel patch-summary">
       <h2>Plain Patch Summary</h2>
-      <p id="patchSummaryText">Stable extreme noise fuzz safety checkpoint. No sound engine running. Press Start Oscillator or Start Noise to test one quiet source. Output is set to 70%, clamped to a safe maximum. Cutoff / Brightness uses a perceptual response curve from 120 Hz to 16000 Hz. The current mapped cutoff is about 2625 Hz and shapes both before and after the fuzz stage. Resonance reaches 40 for a strong audible peak, but v0.28 gently reduces effective resonance and fuzz drive only when Noise, high Resonance, and high Buttery Fuzz are combined. Band 5 Voice remains a real silent bandpass filter tap at 1200 Hz with Q 1.2, routed only to an internal zero-gain path. Faders and Mute buttons are still visual-only. Feedback is not connected. No fake self-oscillation is connected.</p>
+      <p id="patchSummaryText">Stable extreme noise fuzz safety checkpoint. v0.28 was tested by ear and is now frozen as this v0.29 checkpoint. No sound engine running. Press Start Oscillator or Start Noise to test one quiet source. Output is set to 70%, clamped to a safe maximum. Cutoff / Brightness uses a perceptual response curve from 120 Hz to 16000 Hz. The current mapped cutoff is about 2625 Hz and shapes both before and after the fuzz stage. Resonance reaches 40 for a strong audible peak, but the stable safety shaper gently reduces effective resonance and fuzz drive only when Noise, high Resonance, and high Buttery Fuzz are combined. Band 5 Voice remains a real silent bandpass filter tap at 1200 Hz with Q 1.2, routed only to an internal zero-gain path. Faders and Mute buttons are still visual-only. PR #43 / Band 5 audition remains parked. Feedback is not connected. No fake self-oscillation is connected.</p>
     </section>
   </main>
 `;
@@ -753,10 +753,10 @@ function updatePatchSummary() {
   const fuzzSummary = getFuzzSummaryText();
   const safetyShapeText = getExtremeNoiseSafetySummaryText();
   const spectralStateText = getSpectralBandSummaryText();
-  const checkpointText = "The tested v0.25 silent Band 5 tap is frozen in this v0.28 safety checkpoint.";
+  const checkpointText = "The v0.28 extreme noise fuzz safety fix is frozen in this v0.29 checkpoint. The tested v0.25 silent Band 5 tap remains frozen.";
   const safetyText = `Output is clamped to a safe maximum gain of ${MAX_SAFE_MASTER_GAIN}.`;
   const cutoffText = `Cutoff / Brightness uses a perceptual slider curve from ${CUTOFF_MIN_FREQUENCY} Hz to ${CUTOFF_MAX_FREQUENCY} Hz and is currently mapped to ${cutoffFrequency} Hz.`;
-  const notYetText = "No audible Band 5 filtering, all-10-band filter bank, feedback loop, vocoder, delay/reverb effects, MIDI, microphone, sensors, band-fader audio behaviour, or fake self-oscillation is connected yet.";
+  const notYetText = "No audible Band 5 filtering, all-10-band filter bank, feedback loop, vocoder, delay/reverb effects, MIDI, microphone, sensors, band-fader audio behaviour, or fake self-oscillation is connected yet. PR #43 / Band 5 audition remains parked.";
 
   if (wasPanicStopped && !isOscillatorRunning && !isNoiseRunning) {
     patchSummaryText.textContent =
