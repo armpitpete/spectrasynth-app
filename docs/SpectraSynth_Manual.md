@@ -1,7 +1,7 @@
 # SpectraSynth Manual
 
-Version: v0.31 visible source readout  
-Status: UI readout checkpoint; no audio behaviour changes
+Version: v0.32 Pages workflow  
+Status: GitHub Pages deployment wiring added; no audio behaviour changes
 
 ## What SpectraSynth is
 
@@ -20,7 +20,7 @@ Current stable sound path:
 oscillator / noise → pre-fuzz low-pass filter → soft Buttery Fuzz mix → post-fuzz low-pass filter → true left/right stereo spread → master Output → analyser meters / speakers
 ```
 
-v0.31 adds a visible source readout only. It does not change audio behaviour.
+v0.32 adds GitHub Pages deployment wiring only. It does not change audio behaviour.
 
 Feedback is parked.
 
@@ -31,6 +31,21 @@ The 10 spectral faders are still visual-only. They do not shape the sound yet.
 Band 5 Voice has a real silent internal bandpass tap at 1200 Hz with Q 1.2. It is still routed to a zero-gain internal path only.
 
 PR #43 / Band 5 audition is closed and must not be merged.
+
+## Public viewing
+
+The repo now includes a GitHub Pages workflow.
+
+After the workflow has run successfully on `main`, the app should be available from the repository's GitHub Pages site.
+
+If the public page still shows 404 after merge, check the repository settings and set Pages source to **GitHub Actions**.
+
+Local testing still works with:
+
+```text
+npm install
+npm run dev
+```
 
 ## Current safe-audio rules
 
@@ -65,7 +80,7 @@ Current safety rules:
 
 ## Source Readout panel
 
-v0.31 adds a simple visible readout panel.
+v0.31 added a simple visible readout panel.
 
 It shows:
 
@@ -231,7 +246,7 @@ faders = visual only
 Mute buttons = visual only
 ```
 
-Band 5 Voice has a real silent internal filter tap, but it is not audible in v0.31.
+Band 5 Voice has a real silent internal filter tap, but it is not audible in v0.32.
 
 ## Band 5 audition decision
 
@@ -254,20 +269,17 @@ Future Band 5 audition should be redesigned as a clearer comparison tool, not a 
 
 No audible spectral-band work should happen until a new contained issue defines the audition method.
 
-## v0.31 test checklist
+## v0.32 test checklist
 
-Use this checklist after pulling v0.31.
+Use this checklist after pulling v0.32.
 
-- app loads
-- header says `v0.31 visible source readout`
-- Source Readout panel is visible
-- Oscillator readout changes from Off to On when oscillator starts
-- Noise readout changes from Off to On when noise starts
-- Output readout follows the Output slider
-- Cutoff readout shows Hz and changes when Cutoff / Brightness moves
-- Resonance readout follows the visible Resonance slider
-- Buttery Fuzz readout follows the Buttery Fuzz slider
-- Extreme safety reads Active only when Noise, high Resonance, and high Buttery Fuzz are combined
+- local dev still runs with `npm run dev`
+- public deployment workflow exists under `.github/workflows/`
+- `vite.config.js` exists
+- GitHub Pages workflow builds the `dist` folder
+- repository Pages source is set to GitHub Actions if the public page still shows 404
+- app loads from the public GitHub Pages route after the workflow completes
+- app still shows the Source Readout panel
 - oscillator starts and stops
 - noise starts and stops
 - Output still controls level
@@ -319,5 +331,13 @@ No audio behaviour was changed.
 Added a display-only Source Readout panel.
 
 It shows Oscillator, Noise, Output, Cutoff, Resonance, Buttery Fuzz, and Extreme safety state.
+
+No audio behaviour was changed.
+
+### v0.32 — GitHub Pages workflow
+
+Added deployment wiring for GitHub Pages.
+
+Added Vite base-path configuration for the repository Pages route.
 
 No audio behaviour was changed.
