@@ -19,6 +19,10 @@ function clamp(value, minimum, maximum) {
   return Math.min(maximum, Math.max(minimum, value));
 }
 
+function getSmoothControlValue(value) {
+  return Number(value.toFixed(2));
+}
+
 function appendTwoMoonSummary(amountPercent, cutoffValue) {
   const patchSummaryText = document.querySelector("#patchSummaryText");
 
@@ -33,7 +37,7 @@ function appendTwoMoonSummary(amountPercent, cutoffValue) {
     return;
   }
 
-  patchSummaryText.textContent = `${existingSummary} Two-Moon Movement is active: ${amountPercent}% movement is gently moving Cutoff / Brightness around ${cutoffValue}.`;
+  patchSummaryText.textContent = `${existingSummary} Two-Moon Movement is active: ${amountPercent}% movement is gently moving Cutoff / Brightness around ${cutoffValue.toFixed(1)}.`;
 }
 
 function initialiseTwoMoonMovement() {
@@ -70,7 +74,7 @@ function initialiseTwoMoonMovement() {
     const fastMoon = Math.sin((timestamp / TWO_MOON_FAST_PERIOD_MS) * Math.PI * 2 + Math.PI / 3);
     const combinedMovement = slowMoon * 0.65 + fastMoon * 0.35;
     const movementDepth = TWO_MOON_MAX_DEPTH * movementAmount;
-    const cutoffValue = Math.round(clamp(baseCutoffValue + combinedMovement * movementDepth, 0, 100));
+    const cutoffValue = getSmoothControlValue(clamp(baseCutoffValue + combinedMovement * movementDepth, 0, 100));
 
     isApplyingTwoMoonMovement = true;
     cutoffSlider.value = String(cutoffValue);
