@@ -1,7 +1,7 @@
 # SpectraSynth Manual
 
-Version: v0.29 stable checkpoint  
-Status: stable extreme noise fuzz safety checkpoint
+Version: v0.30 decision checkpoint  
+Status: Band 5 audition closed and deferred for redesign
 
 ## What SpectraSynth is
 
@@ -20,7 +20,9 @@ Current stable sound path:
 oscillator / noise → pre-fuzz low-pass filter → soft Buttery Fuzz mix → post-fuzz low-pass filter → true left/right stereo spread → master Output → analyser meters / speakers
 ```
 
-v0.29 is a checkpoint only. It confirms that the v0.28 extreme noise fuzz safety fix is stable after ear testing.
+v0.29 confirmed that the v0.28 extreme noise fuzz safety fix is stable after ear testing.
+
+v0.30 is a decision checkpoint. It closes the old Band 5 audition PR and defers audible Band 5 work until the audition design is clearer.
 
 Feedback is parked.
 
@@ -30,7 +32,7 @@ The 10 spectral faders are still visual-only. They do not shape the sound yet.
 
 Band 5 Voice has a real silent internal bandpass tap at 1200 Hz with Q 1.2. It is still routed to a zero-gain internal path only.
 
-PR #43 / Band 5 audition remains parked and unmerged.
+PR #43 / Band 5 audition is now closed and must not be merged.
 
 ## Current safe-audio rules
 
@@ -214,38 +216,58 @@ faders = visual only
 Mute buttons = visual only
 ```
 
-Band 5 Voice has a real silent internal filter tap, but it is not audible in v0.29.
+Band 5 Voice has a real silent internal filter tap, but it is not audible in v0.30.
 
-PR #43 added a Band 5 audition experiment, but it remains parked and unmerged because the first audition test was not clearly useful.
+## Band 5 audition decision
 
-## v0.29 checkpoint checklist
+PR #43 added a Band 5 audition experiment, but it is now closed and must not be merged.
 
-Use this checklist after pulling v0.29.
+Decision:
 
-- app loads
-- header says `v0.29 stable extreme noise fuzz safety checkpoint`
-- oscillator starts and stops
-- noise starts and stops
-- Cutoff / Brightness still changes the tone strongly
-- Resonance is still strong at normal settings
-- Buttery Fuzz is still soft and audible at normal settings
-- with Noise on, Resonance full, Buttery Fuzz full, and Cutoff around 50%, the repetitive artificial pattern stays reduced or gone
-- patch summary reports that extreme noise safety shaping is active at the extreme setting
-- when Resonance or Buttery Fuzz is lowered, patch summary reports that shaping is idle
-- Output still controls level
-- Panic Stop silences everything
-- analyser meters still respond
-- band faders remain visual-only
+```text
+Close PR #43 and redesign Band 5 audition later.
+```
+
+Reason:
+
+- the audition path was not clearly audible in user testing
+- raising gain from 0.08 to 0.18 did not solve the underlying design problem
+- blindly raising gain is not a good synth-design method
+- main has moved on to the v0.29 stable safety checkpoint
+
+Future Band 5 audition should be redesigned as a clearer comparison tool, not a louder hidden parallel layer.
+
+Possible future designs:
+
+- solo audition
+- A/B audition
+- wet/dry comparison
+- temporary narrow-band emphasis
+- clearer source-dependent test instructions
+
+No audible spectral-band work should happen until a new contained issue defines the audition method.
+
+## v0.30 decision checklist
+
+Use this checklist after pulling v0.30.
+
+- app still loads
+- app still says `v0.29 stable extreme noise fuzz safety checkpoint`
+- manual says `v0.30 decision checkpoint`
+- PR #43 is closed and unmerged
 - Band 5 remains silent
-- Feedback remains parked
-- PR #43 remains parked and unmerged
+- faders remain visual-only
+- Mute buttons remain visual-only
+- no audio code changed for v0.30
+- no new Band 5 audition path exists
+- future Band 5 work requires a new redesign issue
 
 ## What waits for later
 
 Not built yet:
 
+- redesigned Band 5 audition
 - active feedback with fuzz
-- audible Band 5 audition path
 - microphone input
 - vocoder mode
 - MIDI
@@ -308,6 +330,14 @@ Recorded v0.28 as stable after ear testing.
 
 No audio behaviour was changed.
 
-PR #43 / Band 5 audition remains parked and unmerged.
+PR #43 / Band 5 audition remained parked at this checkpoint.
 
 Purpose: make the stable repo state clear before deciding whether to redesign the Band 5 audition path or move to another contained feature.
+
+### v0.30 — Band 5 audition decision
+
+Closed PR #43 and recorded that the current audition architecture should not be merged.
+
+No audio behaviour was changed.
+
+Purpose: prevent unclear Band 5 audition work from entering main and require a clearer redesign before audible spectral-band work continues.
