@@ -1,6 +1,6 @@
 const MAX_DELAY_WET_GAIN = 0.16;
 const MIN_DELAY_SECONDS = 0.07;
-const MAX_DELAY_SECONDS = 0.33;
+const MAX_DELAY_SECONDS = 0.5;
 const STEREO_SPREAD_DELAY_LIMIT_SECONDS = 0.03;
 const CONNECT_PATCH_FLAG = "__spectraSynthDelayConnectPatched";
 
