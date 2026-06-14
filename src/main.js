@@ -22,6 +22,10 @@ const STEREO_SPREAD_GAIN = 0.42;
 const SILENT_BAND_5_INDEX = 4;
 const SILENT_BAND_5_FREQUENCY = 1200;
 const SILENT_BAND_5_Q = 1.2;
+const EXTREME_NOISE_RESONANCE_START = 30;
+const EXTREME_NOISE_RESONANCE_TARGET = 24;
+const EXTREME_NOISE_FUZZ_START = 0.85;
+const EXTREME_NOISE_FUZZ_TARGET_GAIN = 18.0;
 
 const bands = [
   { number: 1, label: "Low", height: 28 },
@@ -86,7 +90,7 @@ document.querySelector("#app").innerHTML = `
         <h1>SpectraSynth</h1>
         <p class="subtitle">Visible spectral instrument</p>
       </div>
-      <div class="version-pill">v0.26 stable silent Band 5 tap checkpoint</div>
+      <div class="version-pill">v0.28 extreme noise fuzz safety</div>
     </header>
 
     <section class="control-grid">
@@ -174,7 +178,7 @@ document.querySelector("#app").innerHTML = `
 
     <section class="panel patch-summary">
       <h2>Plain Patch Summary</h2>
-      <p id="patchSummaryText">Stable silent Band 5 tap checkpoint. The tested v0.25 silent Band 5 tap is frozen. No sound engine running. Press Start Oscillator or Start Noise to test one quiet source. Output is set to 70%, clamped to a safe maximum. Cutoff / Brightness uses a perceptual response curve from 120 Hz to 16000 Hz. The current mapped cutoff is about 2625 Hz and shapes both before and after the fuzz stage. Resonance reaches 40 for a strong audible peak. Buttery Fuzz is set to 70% and uses rounded saturation instead of hard clipping. Band 5 Voice has a real silent bandpass filter tap at 1200 Hz with Q 1.2, routed only to an internal zero-gain path. It is not connected to master Output and does not affect sound. Faders and Mute buttons are still visual-only. Feedback is not connected in v0.26. No fake self-oscillation is connected.</p>
+      <p id="patchSummaryText">Stable extreme noise fuzz safety checkpoint. No sound engine running. Press Start Oscillator or Start Noise to test one quiet source. Output is set to 70%, clamped to a safe maximum. Cutoff / Brightness uses a perceptual response curve from 120 Hz to 16000 Hz. The current mapped cutoff is about 2625 Hz and shapes both before and after the fuzz stage. Resonance reaches 40 for a strong audible peak, but v0.28 gently reduces effective resonance and fuzz drive only when Noise, high Resonance, and high Buttery Fuzz are combined. Band 5 Voice remains a real silent bandpass filter tap at 1200 Hz with Q 1.2, routed only to an internal zero-gain path. Faders and Mute buttons are still visual-only. Feedback is not connected. No fake self-oscillation is connected.</p>
     </section>
   </main>
 `;
@@ -218,11 +222,13 @@ cutoffSlider.addEventListener("input", () => {
 
 resonanceSlider.addEventListener("input", () => {
   updateToneFilterFromControls();
+  updateButteryFuzzFromSlider();
   updatePatchSummary();
 });
 
 butteryFuzzSlider.addEventListener("input", () => {
   updateButteryFuzzFromSlider();
+  updateToneFilterFromControls();
   updatePatchSummary();
 });
 
@@ -355,6 +361,39 @@ function getRoundedCutoffFrequency() {
   return Math.round(getCutoffFrequencyFromSlider());
 }
 
+function clamp(value, minimum, maximum) {
+  return Math.min(maximum, Math.max(minimum, value));
+}
+
+function getExtremeNoiseSafetyAmount(resonanceAmount, fuzzAmount) {
+  if (!isNoiseRunning) {
+    return 0;
+  }
+
+  const resonancePressure = clamp(
+    (resonanceAmount - EXTREME_NOISE_RESONANCE_START) / (40 - EXTREME_NOISE_RESONANCE_START),
+    0,
+    1
+  );
+  const fuzzPressure = clamp(
+    (fuzzAmount - EXTREME_NOISE_FUZZ_START) / (1 - EXTREME_NOISE_FUZZ_START),
+    0,
+    1
+  );
+
+  return resonancePressure * fuzzPressure;
+}
+
+function getEffectiveResonanceAmount(resonanceAmount, safetyAmount) {
+  const resonanceReduction = Math.max(0, resonanceAmount - EXTREME_NOISE_RESONANCE_TARGET) * safetyAmount;
+  return resonanceAmount - resonanceReduction;
+}
+
+function getEffectiveFuzzInputGain(fuzzInputGain, safetyAmount) {
+  const fuzzDriveReduction = Math.max(0, fuzzInputGain - EXTREME_NOISE_FUZZ_TARGET_GAIN) * safetyAmount;
+  return fuzzInputGain - fuzzDriveReduction;
+}
+
 function updateToneFilterFromControls() {
   if (!toneFilter || !audioContext) {
     return;
@@ -362,9 +401,12 @@ function updateToneFilterFromControls() {
 
   const cutoffFrequency = getCutoffFrequencyFromSlider();
   const resonanceAmount = Number(resonanceSlider.value);
+  const fuzzAmount = Number(butteryFuzzSlider.value) / 100;
+  const safetyAmount = getExtremeNoiseSafetyAmount(resonanceAmount, fuzzAmount);
+  const effectiveResonanceAmount = getEffectiveResonanceAmount(resonanceAmount, safetyAmount);
 
   toneFilter.frequency.setTargetAtTime(cutoffFrequency, audioContext.currentTime, 0.015);
-  toneFilter.Q.setTargetAtTime(resonanceAmount, audioContext.currentTime, 0.015);
+  toneFilter.Q.setTargetAtTime(effectiveResonanceAmount, audioContext.currentTime, 0.015);
 
   if (postFuzzFilter) {
     postFuzzFilter.frequency.setTargetAtTime(cutoffFrequency, audioContext.currentTime, 0.015);
@@ -377,8 +419,11 @@ function updateButteryFuzzFromSlider() {
     return;
   }
 
+  const resonanceAmount = Number(resonanceSlider.value);
   const fuzzAmount = Number(butteryFuzzSlider.value) / 100;
-  const fuzzInputGain = FUZZ_MIN_INPUT_GAIN + fuzzAmount * (FUZZ_MAX_INPUT_GAIN - FUZZ_MIN_INPUT_GAIN);
+  const safetyAmount = getExtremeNoiseSafetyAmount(resonanceAmount, fuzzAmount);
+  const rawFuzzInputGain = FUZZ_MIN_INPUT_GAIN + fuzzAmount * (FUZZ_MAX_INPUT_GAIN - FUZZ_MIN_INPUT_GAIN);
+  const fuzzInputGain = getEffectiveFuzzInputGain(rawFuzzInputGain, safetyAmount);
   const dryLevel = Math.max(0.35, 1 - fuzzAmount * 0.6);
   const wetLevel = fuzzAmount * 0.95;
 
@@ -546,7 +591,6 @@ async function startNoise() {
 
   wasPanicStopped = false;
   updateMasterGainFromSlider();
-  updateButteryFuzzFromSlider();
 
   noiseSource = context.createBufferSource();
   noiseGain = context.createGain();
@@ -564,6 +608,8 @@ async function startNoise() {
 
   isNoiseRunning = true;
   noiseButton.textContent = "Stop Noise";
+  updateToneFilterFromControls();
+  updateButteryFuzzFromSlider();
   updatePatchSummary();
 }
 
@@ -596,6 +642,8 @@ function stopNoise(options = {}) {
 
   isNoiseRunning = false;
   noiseButton.textContent = "Start Noise";
+  updateToneFilterFromControls();
+  updateButteryFuzzFromSlider();
 
   if (updateSummary) {
     updatePatchSummary();
@@ -616,6 +664,8 @@ function panicStop() {
   noiseButton.textContent = "Start Noise";
   isOscillatorRunning = false;
   isNoiseRunning = false;
+  updateToneFilterFromControls();
+  updateButteryFuzzFromSlider();
 
   updatePatchSummary();
 }
@@ -646,10 +696,32 @@ function getFuzzSummaryText() {
     return "Buttery Fuzz is off.";
   }
 
+  const resonanceAmount = Number(resonanceSlider.value);
   const fuzzAmount = fuzzPercent / 100;
-  const fuzzInputGain = FUZZ_MIN_INPUT_GAIN + fuzzAmount * (FUZZ_MAX_INPUT_GAIN - FUZZ_MIN_INPUT_GAIN);
+  const safetyAmount = getExtremeNoiseSafetyAmount(resonanceAmount, fuzzAmount);
+  const rawFuzzInputGain = FUZZ_MIN_INPUT_GAIN + fuzzAmount * (FUZZ_MAX_INPUT_GAIN - FUZZ_MIN_INPUT_GAIN);
+  const effectiveFuzzInputGain = getEffectiveFuzzInputGain(rawFuzzInputGain, safetyAmount);
+  const safetyText = safetyAmount > 0
+    ? ` Extreme noise safety shaping is active, so effective fuzz drive is ${effectiveFuzzInputGain.toFixed(2)}x.`
+    : "";
 
-  return `Buttery Fuzz is set to ${fuzzPercent}%, with ${fuzzInputGain.toFixed(2)}x input drive, rounded saturation, dry blend kept in the sound, post-fuzz cutoff shaping, and true left/right stereo spread.`;
+  return `Buttery Fuzz is set to ${fuzzPercent}%, with ${rawFuzzInputGain.toFixed(2)}x input drive before safety shaping, rounded saturation, dry blend kept in the sound, post-fuzz cutoff shaping, and true left/right stereo spread.${safetyText}`;
+}
+
+function getExtremeNoiseSafetySummaryText() {
+  const resonanceAmount = Number(resonanceSlider.value);
+  const fuzzAmount = Number(butteryFuzzSlider.value) / 100;
+  const safetyAmount = getExtremeNoiseSafetyAmount(resonanceAmount, fuzzAmount);
+
+  if (safetyAmount <= 0) {
+    return "Extreme noise safety shaping is idle.";
+  }
+
+  const effectiveResonanceAmount = getEffectiveResonanceAmount(resonanceAmount, safetyAmount);
+  const rawFuzzInputGain = FUZZ_MIN_INPUT_GAIN + fuzzAmount * (FUZZ_MAX_INPUT_GAIN - FUZZ_MIN_INPUT_GAIN);
+  const effectiveFuzzInputGain = getEffectiveFuzzInputGain(rawFuzzInputGain, safetyAmount);
+
+  return `Extreme noise safety shaping is active because Noise, high Resonance, and high Buttery Fuzz are combined. Effective resonance is ${effectiveResonanceAmount.toFixed(1)} instead of ${resonanceAmount.toFixed(1)}, and effective fuzz drive is ${effectiveFuzzInputGain.toFixed(2)}x instead of ${rawFuzzInputGain.toFixed(2)}x.`;
 }
 
 function getSilentBand5TapSummaryText() {
@@ -679,36 +751,37 @@ function updatePatchSummary() {
   const cutoffFrequency = getRoundedCutoffFrequency();
   const resonanceAmount = resonanceSlider.value;
   const fuzzSummary = getFuzzSummaryText();
+  const safetyShapeText = getExtremeNoiseSafetySummaryText();
   const spectralStateText = getSpectralBandSummaryText();
-  const checkpointText = "The tested v0.25 silent Band 5 tap is frozen in this v0.26 checkpoint.";
+  const checkpointText = "The tested v0.25 silent Band 5 tap is frozen in this v0.28 safety checkpoint.";
   const safetyText = `Output is clamped to a safe maximum gain of ${MAX_SAFE_MASTER_GAIN}.`;
   const cutoffText = `Cutoff / Brightness uses a perceptual slider curve from ${CUTOFF_MIN_FREQUENCY} Hz to ${CUTOFF_MAX_FREQUENCY} Hz and is currently mapped to ${cutoffFrequency} Hz.`;
   const notYetText = "No audible Band 5 filtering, all-10-band filter bank, feedback loop, vocoder, delay/reverb effects, MIDI, microphone, sensors, band-fader audio behaviour, or fake self-oscillation is connected yet.";
 
   if (wasPanicStopped && !isOscillatorRunning && !isNoiseRunning) {
     patchSummaryText.textContent =
-      `Panic Stop used. Oscillator and noise are stopped, and output has been silenced. ${checkpointText} The analyser meters will fall as the output reaches silence. Press Start Oscillator or Start Noise to resume normal use. ${fuzzSummary} ${safetyText} ${cutoffText} Resonance is set to ${resonanceAmount}. ${spectralStateText} ${notYetText}`;
+      `Panic Stop used. Oscillator and noise are stopped, and output has been silenced. ${checkpointText} The analyser meters will fall as the output reaches silence. Press Start Oscillator or Start Noise to resume normal use. ${fuzzSummary} ${safetyShapeText} ${safetyText} ${cutoffText} Resonance is set to ${resonanceAmount}. ${spectralStateText} ${notYetText}`;
     return;
   }
 
   if (isOscillatorRunning && isNoiseRunning) {
     patchSummaryText.textContent =
-      `One quiet sawtooth oscillator and one quiet white noise source are running through one pre-fuzz low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the Buttery Fuzz stage, then through a post-fuzz low-pass filter that follows Cutoff, then through the unchanged master Output path set to ${outputPercent}%. ${checkpointText} ${fuzzSummary} ${safetyText} ${cutoffText} ${spectralStateText} ${notYetText}`;
+      `One quiet sawtooth oscillator and one quiet white noise source are running through one pre-fuzz low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the Buttery Fuzz stage, then through a post-fuzz low-pass filter that follows Cutoff, then through the unchanged master Output path set to ${outputPercent}%. ${checkpointText} ${fuzzSummary} ${safetyShapeText} ${safetyText} ${cutoffText} ${spectralStateText} ${notYetText}`;
     return;
   }
 
   if (isOscillatorRunning) {
     patchSummaryText.textContent =
-      `One quiet sawtooth oscillator is running at A3 through one pre-fuzz low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the Buttery Fuzz stage, then through a post-fuzz low-pass filter that follows Cutoff, then through the unchanged master Output path set to ${outputPercent}%. ${checkpointText} ${fuzzSummary} ${safetyText} ${cutoffText} ${spectralStateText} ${notYetText}`;
+      `One quiet sawtooth oscillator is running at A3 through one pre-fuzz low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the Buttery Fuzz stage, then through a post-fuzz low-pass filter that follows Cutoff, then through the unchanged master Output path set to ${outputPercent}%. ${checkpointText} ${fuzzSummary} ${safetyShapeText} ${safetyText} ${cutoffText} ${spectralStateText} ${notYetText}`;
     return;
   }
 
   if (isNoiseRunning) {
     patchSummaryText.textContent =
-      `One quiet white noise source is running through one pre-fuzz low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the Buttery Fuzz stage, then through a post-fuzz low-pass filter that follows Cutoff, then through the unchanged master Output path set to ${outputPercent}%. ${checkpointText} ${fuzzSummary} ${safetyText} ${cutoffText} ${spectralStateText} ${notYetText}`;
+      `One quiet white noise source is running through one pre-fuzz low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the Buttery Fuzz stage, then through a post-fuzz low-pass filter that follows Cutoff, then through the unchanged master Output path set to ${outputPercent}%. ${checkpointText} ${fuzzSummary} ${safetyShapeText} ${safetyText} ${cutoffText} ${spectralStateText} ${notYetText}`;
     return;
   }
 
   patchSummaryText.textContent =
-    `Stable silent Band 5 tap checkpoint. ${checkpointText} No sound engine running. Press Start Oscillator or Start Noise to test one quiet source. Output is set to ${outputPercent}%. ${fuzzSummary} ${safetyText} ${cutoffText} Resonance is set to ${resonanceAmount}. ${spectralStateText} ${notYetText}`;
+    `Stable extreme noise fuzz safety checkpoint. ${checkpointText} No sound engine running. Press Start Oscillator or Start Noise to test one quiet source. Output is set to ${outputPercent}%. ${fuzzSummary} ${safetyShapeText} ${safetyText} ${cutoffText} Resonance is set to ${resonanceAmount}. ${spectralStateText} ${notYetText}`;
 }
