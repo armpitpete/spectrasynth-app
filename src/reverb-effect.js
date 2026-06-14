@@ -1,4 +1,4 @@
-const MAX_REVERB_WET_GAIN = 0.11;
+const MAX_REVERB_WET_GAIN = 0.22;
 const REVERB_DECAY_SECONDS = 1.15;
 const REVERB_PRE_DELAY_SECONDS = 0.018;
 const STEREO_SPREAD_DELAY_LIMIT_SECONDS = 0.03;
@@ -62,7 +62,7 @@ function updateReverbSummary() {
     return;
   }
 
-  patchSummaryText.textContent = `${existingSummary} Reverb is active: ${reverbPercent}% adds a small controlled room space with no feedback loop.`;
+  patchSummaryText.textContent = `${existingSummary} Reverb is active: ${reverbPercent}% adds a controlled room space with no feedback loop.`;
 }
 
 function updateReverbFromSlider() {
