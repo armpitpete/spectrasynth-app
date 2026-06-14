@@ -1,7 +1,7 @@
 # SpectraSynth Manual
 
-Version: v0.32 Pages workflow  
-Status: GitHub Pages deployment wiring added; no audio behaviour changes
+Version: v0.33 stable Pages deployment checkpoint  
+Status: public GitHub Pages deployment fixed; no audio behaviour changes
 
 ## What SpectraSynth is
 
@@ -20,7 +20,7 @@ Current stable sound path:
 oscillator / noise → pre-fuzz low-pass filter → soft Buttery Fuzz mix → post-fuzz low-pass filter → true left/right stereo spread → master Output → analyser meters / speakers
 ```
 
-v0.32 adds GitHub Pages deployment wiring only. It does not change audio behaviour.
+v0.33 records the GitHub Pages deployment as fixed and stable. It does not change audio behaviour.
 
 Feedback is parked.
 
@@ -34,11 +34,15 @@ PR #43 / Band 5 audition is closed and must not be merged.
 
 ## Public viewing
 
-The repo now includes a GitHub Pages workflow.
+The repo now includes a GitHub Pages workflow and a Vite base-path config for the repository Pages route.
 
-After the workflow has run successfully on `main`, the app should be available from the repository's GitHub Pages site.
+The public site is:
 
-If the public page still shows 404 after merge, check the repository settings and set Pages source to **GitHub Actions**.
+```text
+https://armpitpete.github.io/spectrasynth-app/
+```
+
+GitHub Pages must use **GitHub Actions** as the source.
 
 Local testing still works with:
 
@@ -46,6 +50,8 @@ Local testing still works with:
 npm install
 npm run dev
 ```
+
+The first Pages workflow failed because `src/styles.css` contained pasted PowerShell wrapper text at the beginning and end of the CSS file. Those wrapper lines were removed on `main`, and the Pages deployment was then fixed.
 
 ## Current safe-audio rules
 
@@ -246,7 +252,7 @@ faders = visual only
 Mute buttons = visual only
 ```
 
-Band 5 Voice has a real silent internal filter tap, but it is not audible in v0.32.
+Band 5 Voice has a real silent internal filter tap, but it is not audible in v0.33.
 
 ## Band 5 audition decision
 
@@ -263,22 +269,22 @@ Reason:
 - the audition path was not clearly audible in user testing
 - raising gain from 0.08 to 0.18 did not solve the underlying design problem
 - blindly raising gain is not a good synth-design method
-- main has moved on to the stable safety/readout checkpoints
+- main has moved on to the stable safety/readout/deployment checkpoints
 
 Future Band 5 audition should be redesigned as a clearer comparison tool, not a louder hidden parallel layer.
 
 No audible spectral-band work should happen until a new contained issue defines the audition method.
 
-## v0.32 test checklist
+## v0.33 test checklist
 
-Use this checklist after pulling v0.32.
+Use this checklist after pulling v0.33.
 
+- public GitHub Pages URL loads the app
 - local dev still runs with `npm run dev`
 - public deployment workflow exists under `.github/workflows/`
 - `vite.config.js` exists
-- GitHub Pages workflow builds the `dist` folder
-- repository Pages source is set to GitHub Actions if the public page still shows 404
-- app loads from the public GitHub Pages route after the workflow completes
+- GitHub Pages source is set to GitHub Actions
+- `src/styles.css` no longer contains PowerShell wrapper markers
 - app still shows the Source Readout panel
 - oscillator starts and stops
 - noise starts and stops
@@ -339,5 +345,13 @@ No audio behaviour was changed.
 Added deployment wiring for GitHub Pages.
 
 Added Vite base-path configuration for the repository Pages route.
+
+No audio behaviour was changed.
+
+### v0.33 — Stable Pages deployment checkpoint
+
+Recorded that GitHub Pages deployment is fixed and stable.
+
+Recorded that the failed production build was caused by pasted PowerShell wrapper markers in `src/styles.css`, which were removed.
 
 No audio behaviour was changed.
