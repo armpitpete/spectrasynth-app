@@ -1,7 +1,7 @@
 # SpectraSynth Manual
 
-Version: v0.30 decision checkpoint  
-Status: Band 5 audition closed and deferred for redesign
+Version: v0.31 visible source readout  
+Status: UI readout checkpoint; no audio behaviour changes
 
 ## What SpectraSynth is
 
@@ -20,9 +20,7 @@ Current stable sound path:
 oscillator / noise → pre-fuzz low-pass filter → soft Buttery Fuzz mix → post-fuzz low-pass filter → true left/right stereo spread → master Output → analyser meters / speakers
 ```
 
-v0.29 confirmed that the v0.28 extreme noise fuzz safety fix is stable after ear testing.
-
-v0.30 is a decision checkpoint. It closes the old Band 5 audition PR and defers audible Band 5 work until the audition design is clearer.
+v0.31 adds a visible source readout only. It does not change audio behaviour.
 
 Feedback is parked.
 
@@ -32,7 +30,7 @@ The 10 spectral faders are still visual-only. They do not shape the sound yet.
 
 Band 5 Voice has a real silent internal bandpass tap at 1200 Hz with Q 1.2. It is still routed to a zero-gain internal path only.
 
-PR #43 / Band 5 audition is now closed and must not be merged.
+PR #43 / Band 5 audition is closed and must not be merged.
 
 ## Current safe-audio rules
 
@@ -62,7 +60,26 @@ Current safety rules:
 5. Move **Resonance** carefully.
 6. Move **Buttery Fuzz**.
 7. Press **Start Noise** only when testing noise behaviour.
-8. Press **Panic Stop** if the sound feels too strong.
+8. Watch the **Source Readout** panel while changing controls.
+9. Press **Panic Stop** if the sound feels too strong.
+
+## Source Readout panel
+
+v0.31 adds a simple visible readout panel.
+
+It shows:
+
+- Oscillator: On/Off
+- Noise: On/Off
+- Output %
+- Cutoff Hz
+- Resonance visible value
+- Buttery Fuzz %
+- Extreme safety: Idle/Active
+
+This panel is display-only. It does not change sound.
+
+The readout is useful during testing because the important sound-state values are visible without reading the long patch summary.
 
 ## Controls
 
@@ -168,8 +185,6 @@ The Output control is clamped to a safe maximum. At 100%, it is still deliberate
 
 ## Extreme noise fuzz safety
 
-v0.29 treats the v0.28 fix as stable.
-
 The fixed problem setting was:
 
 ```text
@@ -200,7 +215,7 @@ base fuzz input drive = 26.0
 effective fuzz input drive target = 18.0
 ```
 
-The patch summary reports when this shaping is active.
+The patch summary and the Source Readout panel report when this shaping is active.
 
 ## Spectral Engine panel
 
@@ -216,11 +231,11 @@ faders = visual only
 Mute buttons = visual only
 ```
 
-Band 5 Voice has a real silent internal filter tap, but it is not audible in v0.30.
+Band 5 Voice has a real silent internal filter tap, but it is not audible in v0.31.
 
 ## Band 5 audition decision
 
-PR #43 added a Band 5 audition experiment, but it is now closed and must not be merged.
+PR #43 added a Band 5 audition experiment, but it is closed and must not be merged.
 
 Decision:
 
@@ -233,34 +248,35 @@ Reason:
 - the audition path was not clearly audible in user testing
 - raising gain from 0.08 to 0.18 did not solve the underlying design problem
 - blindly raising gain is not a good synth-design method
-- main has moved on to the v0.29 stable safety checkpoint
+- main has moved on to the stable safety/readout checkpoints
 
 Future Band 5 audition should be redesigned as a clearer comparison tool, not a louder hidden parallel layer.
 
-Possible future designs:
-
-- solo audition
-- A/B audition
-- wet/dry comparison
-- temporary narrow-band emphasis
-- clearer source-dependent test instructions
-
 No audible spectral-band work should happen until a new contained issue defines the audition method.
 
-## v0.30 decision checklist
+## v0.31 test checklist
 
-Use this checklist after pulling v0.30.
+Use this checklist after pulling v0.31.
 
-- app still loads
-- app still says `v0.29 stable extreme noise fuzz safety checkpoint`
-- manual says `v0.30 decision checkpoint`
-- PR #43 is closed and unmerged
-- Band 5 remains silent
-- faders remain visual-only
+- app loads
+- header says `v0.31 visible source readout`
+- Source Readout panel is visible
+- Oscillator readout changes from Off to On when oscillator starts
+- Noise readout changes from Off to On when noise starts
+- Output readout follows the Output slider
+- Cutoff readout shows Hz and changes when Cutoff / Brightness moves
+- Resonance readout follows the visible Resonance slider
+- Buttery Fuzz readout follows the Buttery Fuzz slider
+- Extreme safety reads Active only when Noise, high Resonance, and high Buttery Fuzz are combined
+- oscillator starts and stops
+- noise starts and stops
+- Output still controls level
+- Panic Stop silences everything
+- analyser meters still respond
+- band faders remain visual-only
 - Mute buttons remain visual-only
-- no audio code changed for v0.30
-- no new Band 5 audition path exists
-- future Band 5 work requires a new redesign issue
+- Band 5 remains silent
+- Feedback remains parked
 
 ## What waits for later
 
@@ -280,49 +296,11 @@ Not built yet:
 
 ## Build log
 
-### v0.17 — Buttery feedback character
-
-Added gentle internal soft saturation inside the protected feedback loop.
-
-Purpose: make feedback less brittle and less electronic without adding a separate distortion effect.
-
-### v0.19 — Extended cutoff brightness range
-
-Raised the Cutoff / Brightness maximum from 8000 Hz to 16000 Hz.
-
-Purpose: let the filter open properly before adding fuzz distortion.
-
-### v0.20 — Buttery fuzz distortion
-
-Added a Buttery Fuzz amount control after the low-pass filter.
-
-Retuned the fuzz after testing showed two separate failures: first it was not obvious enough, then it became too hard and raspy.
-
-Raised Resonance maximum from 8 to 40.
-
-Added a post-fuzz low-pass filter controlled by Cutoff so distortion does not weaken the Cutoff control.
-
-Added a true left/right stereo-width branch after the post-fuzz filter.
-
-Feedback was parked.
-
-Purpose: give the oscillator and noise an audible soft buttery distortion edge before reconnecting feedback later.
-
-### v0.26 — Stable silent Band 5 tap checkpoint
-
-Added a real Band 5 Voice bandpass filter at 1200 Hz with Q 1.2.
-
-The tap was routed only to an internal zero-gain path.
-
-Purpose: prove the first spectral-band tap can exist safely before making any band audible.
-
 ### v0.28 — Extreme noise fuzz safety
 
 Added a narrow internal safety shaper for one bad edge case: Noise on, high Resonance, high Buttery Fuzz, and mid Cutoff.
 
 The shaper gently reduces effective resonance and fuzz input drive only in that corner.
-
-Purpose: reduce the repetitive artificial pattern without weakening normal Resonance, soft Buttery Fuzz, stereo spread, analyser behaviour, or the silent Band 5 tap.
 
 ### v0.29 — Stable extreme noise fuzz safety checkpoint
 
@@ -330,14 +308,16 @@ Recorded v0.28 as stable after ear testing.
 
 No audio behaviour was changed.
 
-PR #43 / Band 5 audition remained parked at this checkpoint.
-
-Purpose: make the stable repo state clear before deciding whether to redesign the Band 5 audition path or move to another contained feature.
-
 ### v0.30 — Band 5 audition decision
 
 Closed PR #43 and recorded that the current audition architecture should not be merged.
 
 No audio behaviour was changed.
 
-Purpose: prevent unclear Band 5 audition work from entering main and require a clearer redesign before audible spectral-band work continues.
+### v0.31 — Visible source level readout
+
+Added a display-only Source Readout panel.
+
+It shows Oscillator, Noise, Output, Cutoff, Resonance, Buttery Fuzz, and Extreme safety state.
+
+No audio behaviour was changed.
