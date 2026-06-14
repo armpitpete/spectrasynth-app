@@ -1,6 +1,6 @@
 const MAX_DELAY_WET_GAIN = 0.16;
 const MIN_DELAY_SECONDS = 0.07;
-const MAX_DELAY_SECONDS = 0.5;
+const MAX_DELAY_SECONDS = 2.0;
 const STEREO_SPREAD_DELAY_LIMIT_SECONDS = 0.03;
 const CONNECT_PATCH_FLAG = "__spectraSynthDelayConnectPatched";
 
@@ -48,7 +48,7 @@ function updateDelaySummary() {
   }
 
   const delaySeconds = getDelayTime(delayPercent / 100).toFixed(2);
-  patchSummaryText.textContent = `${existingSummary} Delay is active: ${delayPercent}% gives a short controlled echo at about ${delaySeconds} seconds with no feedback loop.`;
+  patchSummaryText.textContent = `${existingSummary} Delay is active: ${delayPercent}% gives a controlled echo at about ${delaySeconds} seconds with no feedback loop.`;
 }
 
 function updateDelayFromSlider() {
