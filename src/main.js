@@ -90,7 +90,7 @@ document.querySelector("#app").innerHTML = `
         <h1>SpectraSynth</h1>
         <p class="subtitle">Visible spectral instrument</p>
       </div>
-      <div class="version-pill">v0.29 stable extreme noise fuzz safety checkpoint</div>
+      <div class="version-pill">v0.31 visible source readout</div>
     </header>
 
     <section class="control-grid">
@@ -145,6 +145,22 @@ document.querySelector("#app").innerHTML = `
       </section>
     </section>
 
+    <section class="panel source-readout-panel" aria-label="Visible source level readout">
+      <div class="section-heading">
+        <h2>Source Readout</h2>
+        <p>Display-only test values. This panel does not change audio.</p>
+      </div>
+      <dl class="source-readout-grid">
+        <div><dt>Oscillator</dt><dd id="readoutOscillator">Off</dd></div>
+        <div><dt>Noise</dt><dd id="readoutNoise">Off</dd></div>
+        <div><dt>Output</dt><dd id="readoutOutput">70%</dd></div>
+        <div><dt>Cutoff</dt><dd id="readoutCutoff">2625 Hz</dd></div>
+        <div><dt>Resonance</dt><dd id="readoutResonance">2.0</dd></div>
+        <div><dt>Buttery Fuzz</dt><dd id="readoutFuzz">70%</dd></div>
+        <div><dt>Extreme safety</dt><dd id="readoutSafety">Idle</dd></div>
+      </dl>
+    </section>
+
     <section class="panel spectral-panel">
       <div class="section-heading">
         <h2>Spectral Engine</h2>
@@ -178,7 +194,7 @@ document.querySelector("#app").innerHTML = `
 
     <section class="panel patch-summary">
       <h2>Plain Patch Summary</h2>
-      <p id="patchSummaryText">Stable extreme noise fuzz safety checkpoint. v0.28 was tested by ear and is now frozen as this v0.29 checkpoint. No sound engine running. Press Start Oscillator or Start Noise to test one quiet source. Output is set to 70%, clamped to a safe maximum. Cutoff / Brightness uses a perceptual response curve from 120 Hz to 16000 Hz. The current mapped cutoff is about 2625 Hz and shapes both before and after the fuzz stage. Resonance reaches 40 for a strong audible peak, but the stable safety shaper gently reduces effective resonance and fuzz drive only when Noise, high Resonance, and high Buttery Fuzz are combined. Band 5 Voice remains a real silent bandpass filter tap at 1200 Hz with Q 1.2, routed only to an internal zero-gain path. Faders and Mute buttons are still visual-only. PR #43 / Band 5 audition remains parked. Feedback is not connected. No fake self-oscillation is connected.</p>
+      <p id="patchSummaryText">Stable extreme noise fuzz safety checkpoint. No sound engine running. Press Start Oscillator or Start Noise to test one quiet source. Output is set to 70%, clamped to a safe maximum. Cutoff / Brightness uses a perceptual response curve from 120 Hz to 16000 Hz. The current mapped cutoff is about 2625 Hz and shapes both before and after the fuzz stage. Resonance reaches 40 for a strong audible peak, but the stable safety shaper gently reduces effective resonance and fuzz drive only when Noise, high Resonance, and high Buttery Fuzz are combined. Band 5 Voice remains a real silent bandpass filter tap at 1200 Hz with Q 1.2, routed only to an internal zero-gain path. Faders and Mute buttons are still visual-only. PR #43 / Band 5 audition is closed. Feedback is not connected. No fake self-oscillation is connected.</p>
     </section>
   </main>
 `;
@@ -191,6 +207,13 @@ const resonanceSlider = document.querySelector("#resonanceSlider");
 const butteryFuzzSlider = document.querySelector("#butteryFuzzSlider");
 const outputSlider = document.querySelector("#outputSlider");
 const patchSummaryText = document.querySelector("#patchSummaryText");
+const readoutOscillator = document.querySelector("#readoutOscillator");
+const readoutNoise = document.querySelector("#readoutNoise");
+const readoutOutput = document.querySelector("#readoutOutput");
+const readoutCutoff = document.querySelector("#readoutCutoff");
+const readoutResonance = document.querySelector("#readoutResonance");
+const readoutFuzz = document.querySelector("#readoutFuzz");
+const readoutSafety = document.querySelector("#readoutSafety");
 const meterFills = document.querySelectorAll(".meter-fill");
 const bandFaders = document.querySelectorAll(".band-fader");
 const muteButtons = document.querySelectorAll(".mute-button");
@@ -689,6 +712,22 @@ function updateMuteButtonFromState(button, bandState) {
   button.setAttribute("aria-pressed", String(bandState.isMuted));
 }
 
+function getSafetyAmountFromControls() {
+  const resonanceAmount = Number(resonanceSlider.value);
+  const fuzzAmount = Number(butteryFuzzSlider.value) / 100;
+  return getExtremeNoiseSafetyAmount(resonanceAmount, fuzzAmount);
+}
+
+function updateSourceReadout() {
+  readoutOscillator.textContent = isOscillatorRunning ? "On" : "Off";
+  readoutNoise.textContent = isNoiseRunning ? "On" : "Off";
+  readoutOutput.textContent = `${outputSlider.value}%`;
+  readoutCutoff.textContent = `${getRoundedCutoffFrequency()} Hz`;
+  readoutResonance.textContent = Number(resonanceSlider.value).toFixed(1);
+  readoutFuzz.textContent = `${butteryFuzzSlider.value}%`;
+  readoutSafety.textContent = getSafetyAmountFromControls() > 0 ? "Active" : "Idle";
+}
+
 function getFuzzSummaryText() {
   const fuzzPercent = Number(butteryFuzzSlider.value);
 
@@ -747,16 +786,18 @@ function getSpectralBandSummaryText() {
 }
 
 function updatePatchSummary() {
+  updateSourceReadout();
+
   const outputPercent = outputSlider.value;
   const cutoffFrequency = getRoundedCutoffFrequency();
   const resonanceAmount = resonanceSlider.value;
   const fuzzSummary = getFuzzSummaryText();
   const safetyShapeText = getExtremeNoiseSafetySummaryText();
   const spectralStateText = getSpectralBandSummaryText();
-  const checkpointText = "The v0.28 extreme noise fuzz safety fix is frozen in this v0.29 checkpoint. The tested v0.25 silent Band 5 tap remains frozen.";
+  const checkpointText = "The v0.28 extreme noise fuzz safety fix is frozen, PR #43 / Band 5 audition is closed, and v0.31 adds only a visible source readout.";
   const safetyText = `Output is clamped to a safe maximum gain of ${MAX_SAFE_MASTER_GAIN}.`;
   const cutoffText = `Cutoff / Brightness uses a perceptual slider curve from ${CUTOFF_MIN_FREQUENCY} Hz to ${CUTOFF_MAX_FREQUENCY} Hz and is currently mapped to ${cutoffFrequency} Hz.`;
-  const notYetText = "No audible Band 5 filtering, all-10-band filter bank, feedback loop, vocoder, delay/reverb effects, MIDI, microphone, sensors, band-fader audio behaviour, or fake self-oscillation is connected yet. PR #43 / Band 5 audition remains parked.";
+  const notYetText = "No audible Band 5 filtering, all-10-band filter bank, feedback loop, vocoder, delay/reverb effects, MIDI, microphone, sensors, band-fader audio behaviour, or fake self-oscillation is connected yet.";
 
   if (wasPanicStopped && !isOscillatorRunning && !isNoiseRunning) {
     patchSummaryText.textContent =
@@ -783,5 +824,7 @@ function updatePatchSummary() {
   }
 
   patchSummaryText.textContent =
-    `Stable extreme noise fuzz safety checkpoint. ${checkpointText} No sound engine running. Press Start Oscillator or Start Noise to test one quiet source. Output is set to ${outputPercent}%. ${fuzzSummary} ${safetyShapeText} ${safetyText} ${cutoffText} Resonance is set to ${resonanceAmount}. ${spectralStateText} ${notYetText}`;
+    `Stable visible source readout checkpoint. ${checkpointText} No sound engine running. Press Start Oscillator or Start Noise to test one quiet source. Output is set to ${outputPercent}%. ${fuzzSummary} ${safetyShapeText} ${safetyText} ${cutoffText} Resonance is set to ${resonanceAmount}. ${spectralStateText} ${notYetText}`;
 }
+
+updatePatchSummary();
