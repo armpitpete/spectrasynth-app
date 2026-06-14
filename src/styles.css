@@ -11,6 +11,7 @@
 }
 
 body {
+  position: relative;
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
@@ -34,20 +35,36 @@ button {
 }
 
 .public-build-strip {
+  position: absolute;
+  z-index: 3;
+  top: 5.4rem;
+  right: max(2.4rem, calc((100vw - 1440px) / 2 + 2.4rem));
   display: flex;
-  justify-content: center;
-  gap: 0.65rem;
-  width: min(1440px, calc(100% - 2rem));
-  margin: 1rem auto 0;
-  padding: 0.65rem 0.9rem;
-  border: 1px solid rgba(171, 132, 255, 0.32);
-  border-radius: 999px;
-  background: rgba(17, 24, 35, 0.74);
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  width: auto;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   color: #9fb0c3;
-  font-size: 0.86rem;
+  font-size: 0.78rem;
+  pointer-events: none;
+}
+
+.public-build-strip span {
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
 }
 
 .public-build-strip a {
+  pointer-events: auto;
+  border: 1px solid rgba(171, 132, 255, 0.35);
+  border-radius: 999px;
+  padding: 0.42rem 0.65rem;
+  background: rgba(125, 81, 255, 0.12);
   color: #d9ceff;
   text-decoration: none;
 }
@@ -59,7 +76,7 @@ button {
 .app-shell {
   width: min(1440px, calc(100% - 2rem));
   margin: 0 auto;
-  padding: 1rem 0 2rem;
+  padding: 2rem 0 2rem;
 }
 
 .app-header {
@@ -275,6 +292,11 @@ input[type="range"] {
     grid-template-columns: 1fr;
   }
 
+  .public-build-strip {
+    top: 6rem;
+    right: 2.4rem;
+  }
+
   .source-readout-grid {
     grid-template-columns: repeat(4, minmax(120px, 1fr));
   }
@@ -286,9 +308,16 @@ input[type="range"] {
 
 @media (max-width: 640px) {
   .app-header,
-  .section-heading,
-  .public-build-strip {
+  .section-heading {
     flex-direction: column;
+  }
+
+  .public-build-strip {
+    position: static;
+    justify-content: flex-start;
+    width: min(1440px, calc(100% - 2rem));
+    margin: 1rem auto -0.3rem;
+    pointer-events: auto;
   }
 
   .source-readout-grid {
