@@ -1,0 +1,118 @@
+button,
+.mute-button {
+  position: relative;
+  min-height: 2.25rem;
+  border-color: rgba(215, 226, 240, 0.26) !important;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.09), transparent 55%),
+    linear-gradient(180deg, rgba(47, 58, 75, 0.98) 0%, rgba(18, 24, 34, 0.98) 100%) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.13),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.58),
+    0 0.45rem 0.9rem rgba(0, 0, 0, 0.24) !important;
+  font-size: 0.84rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+button:hover,
+.mute-button:hover {
+  border-color: rgba(226, 235, 246, 0.36) !important;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.12), transparent 55%),
+    linear-gradient(180deg, rgba(53, 66, 86, 0.98) 0%, rgba(21, 28, 39, 0.98) 100%) !important;
+}
+
+button:active,
+.mute-button:active {
+  transform: translateY(1px);
+  box-shadow:
+    inset 0 2px 0 rgba(0, 0, 0, 0.58),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.05),
+    0 0.25rem 0.55rem rgba(0, 0, 0, 0.2) !important;
+}
+
+.mute-button.is-muted {
+  border-color: rgba(255, 204, 118, 0.72) !important;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(255, 228, 168, 0.18), transparent 58%),
+    linear-gradient(180deg, rgba(113, 72, 30, 0.92) 0%, rgba(57, 35, 18, 0.96) 100%) !important;
+  color: #ffe0b0 !important;
+}
+
+input[type="range"] {
+  height: 1.65rem;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  cursor: default;
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 0.5rem;
+  border: 1px solid rgba(206, 219, 235, 0.18);
+  border-radius: 999px;
+  background:
+    linear-gradient(180deg, rgba(6, 9, 14, 0.95) 0%, rgba(18, 25, 36, 0.95) 100%);
+  box-shadow:
+    inset 0 0.18rem 0.35rem rgba(0, 0, 0, 0.74),
+    0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 1.12rem;
+  height: 1.12rem;
+  margin-top: -0.36rem;
+  border: 1px solid rgba(234, 240, 248, 0.35);
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 35% 28%, rgba(255, 255, 255, 0.34), transparent 26%),
+    linear-gradient(180deg, rgba(217, 224, 234, 0.98) 0%, rgba(94, 108, 128, 0.98) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.45),
+    0 0 0 0.18rem rgba(210, 43, 147, 0.16),
+    0 0.25rem 0.55rem rgba(0, 0, 0, 0.32);
+}
+
+input[type="range"]::-moz-range-track {
+  height: 0.5rem;
+  border: 1px solid rgba(206, 219, 235, 0.18);
+  border-radius: 999px;
+  background:
+    linear-gradient(180deg, rgba(6, 9, 14, 0.95) 0%, rgba(18, 25, 36, 0.95) 100%);
+  box-shadow:
+    inset 0 0.18rem 0.35rem rgba(0, 0, 0, 0.74),
+    0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+input[type="range"]::-moz-range-progress {
+  height: 0.5rem;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #9f1f76 0%, #d22b93 100%);
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 1.12rem;
+  height: 1.12rem;
+  border: 1px solid rgba(234, 240, 248, 0.35);
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 35% 28%, rgba(255, 255, 255, 0.34), transparent 26%),
+    linear-gradient(180deg, rgba(217, 224, 234, 0.98) 0%, rgba(94, 108, 128, 0.98) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.45),
+    0 0 0 0.18rem rgba(210, 43, 147, 0.16),
+    0 0.25rem 0.55rem rgba(0, 0, 0, 0.32);
+}
+
+.band-fader::-webkit-slider-runnable-track {
+  width: 0.5rem;
+}
+
+.band-fader::-webkit-slider-thumb {
+  width: 1rem;
+  height: 1rem;
+}
