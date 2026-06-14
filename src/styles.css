@@ -130,7 +130,13 @@ h2 {
   padding: 0.55rem 0.8rem;
   background: rgba(125, 81, 255, 0.12);
   color: #d9ceff;
+  font-size: 0;
   white-space: nowrap;
+}
+
+.version-pill::after {
+  content: "v0.37 current public checkpoint";
+  font-size: 0.9rem;
 }
 
 .control-grid {
