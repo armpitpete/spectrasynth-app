@@ -1,7 +1,7 @@
 # SpectraSynth Manual
 
-Version: v0.28 draft  
-Status: written alongside the prototype
+Version: v0.29 stable checkpoint  
+Status: stable extreme noise fuzz safety checkpoint
 
 ## What SpectraSynth is
 
@@ -14,19 +14,23 @@ Current sound sources:
 - one sawtooth oscillator
 - one white noise source
 
-Current sound path:
+Current stable sound path:
 
 ```text
 oscillator / noise → pre-fuzz low-pass filter → soft Buttery Fuzz mix → post-fuzz low-pass filter → true left/right stereo spread → master Output → analyser meters / speakers
 ```
 
-Feedback is parked in v0.28.
+v0.29 is a checkpoint only. It confirms that the v0.28 extreme noise fuzz safety fix is stable after ear testing.
 
-There is no active feedback loop in this version. The previous feedback work is not deleted as a design direction, but it is not part of the current safe fuzz path.
+Feedback is parked.
+
+There is no active feedback loop in this version.
 
 The 10 spectral faders are still visual-only. They do not shape the sound yet.
 
 Band 5 Voice has a real silent internal bandpass tap at 1200 Hz with Q 1.2. It is still routed to a zero-gain internal path only.
+
+PR #43 / Band 5 audition remains parked and unmerged.
 
 ## Current safe-audio rules
 
@@ -42,7 +46,7 @@ Current safety rules:
 - Cutoff shapes the sound before and after the fuzz stage
 - Resonance still reaches 40 for a stronger audible peak
 - true left/right stereo spread is added after the post-fuzz filter
-- Feedback is not connected in v0.28
+- Feedback is not connected
 - Panic Stop silences the app quickly
 - no fake self-oscillation is connected
 - extreme noise safety shaping is active only when Noise, high Resonance, and high Buttery Fuzz are combined
@@ -72,7 +76,7 @@ Starts one white noise source.
 
 Noise is useful because it shows the whole filter shape clearly. It also reveals when fuzz or filtering becomes too harsh.
 
-In v0.28, Noise also activates the extreme-combination check. The check does nothing at normal settings.
+Noise also activates the extreme-combination check. The check does nothing at normal settings.
 
 ### Panic Stop
 
@@ -84,7 +88,7 @@ Use it whenever the sound feels too loud, too sharp, or unstable.
 
 Controls the low-pass filter cutoff.
 
-The current cutoff range is 120 Hz to 16000 Hz, with a perceptual slider curve. This means the lower half of the slider gives more useful dark-to-mid movement instead of wasting most of the control on very bright frequencies.
+The current cutoff range is 120 Hz to 16000 Hz, with a perceptual slider curve.
 
 Cutoff controls two stages:
 
@@ -103,7 +107,7 @@ Resonance reaches 40, so it can produce a strong audible peak.
 
 Higher resonance can make the sound sharper and more ring-like. Use it carefully with Noise and Buttery Fuzz.
 
-In v0.28, the visible Resonance control still reaches 40. Internally, the app gently reduces effective resonance only when this extreme combination happens:
+The visible Resonance control still reaches 40. Internally, the app gently reduces effective resonance only when this extreme combination happens:
 
 ```text
 Noise on + Resonance above 30 + Buttery Fuzz above 85%
@@ -131,7 +135,7 @@ The curve is deliberately soft. It uses rounded saturation and a small warm asym
 
 The goal is audible soft buttery distortion, not raspy hard clipping.
 
-In v0.28, when Noise, very high Resonance, and very high Buttery Fuzz are combined, the app gently pulls the effective fuzz input drive down toward 18.0. Normal fuzz settings are unchanged.
+When Noise, very high Resonance, and very high Buttery Fuzz are combined, the app gently pulls the effective fuzz input drive down toward 18.0. Normal fuzz settings are unchanged.
 
 ### Stereo width
 
@@ -150,7 +154,7 @@ stereo spread gain = 0.42 per side
 
 ### Feedback
 
-Feedback is parked in v0.28.
+Feedback is parked.
 
 There is no Feedback slider in this version. Feedback should not be tested until the core tone is stable.
 
@@ -162,9 +166,9 @@ The Output control is clamped to a safe maximum. At 100%, it is still deliberate
 
 ## Extreme noise fuzz safety
 
-v0.28 fixes a specific bad edge case.
+v0.29 treats the v0.28 fix as stable.
 
-Problem setting:
+The fixed problem setting was:
 
 ```text
 Noise on
@@ -173,7 +177,7 @@ Buttery Fuzz full
 Cutoff / Brightness around 50%
 ```
 
-At this setting, the sound could develop a repetitive artificial pattern. The likely cause is a high-Q filter and full fuzz drive exaggerating one narrow noise peak until it starts to sound periodic.
+At this setting, the sound could develop a repetitive artificial pattern. The likely cause was a high-Q filter and full fuzz drive exaggerating one narrow noise peak until it started to sound periodic.
 
 The fix is not a limiter and not a compressor.
 
@@ -210,20 +214,22 @@ faders = visual only
 Mute buttons = visual only
 ```
 
-Band 5 Voice has a real silent internal filter tap, but it is not audible in v0.28.
+Band 5 Voice has a real silent internal filter tap, but it is not audible in v0.29.
 
-## v0.28 test checklist
+PR #43 added a Band 5 audition experiment, but it remains parked and unmerged because the first audition test was not clearly useful.
 
-Use this checklist after pulling v0.28.
+## v0.29 checkpoint checklist
+
+Use this checklist after pulling v0.29.
 
 - app loads
-- header says `v0.28 extreme noise fuzz safety`
+- header says `v0.29 stable extreme noise fuzz safety checkpoint`
 - oscillator starts and stops
 - noise starts and stops
 - Cutoff / Brightness still changes the tone strongly
 - Resonance is still strong at normal settings
 - Buttery Fuzz is still soft and audible at normal settings
-- with Noise on, Resonance full, Buttery Fuzz full, and Cutoff around 50%, the repetitive artificial pattern is reduced or gone
+- with Noise on, Resonance full, Buttery Fuzz full, and Cutoff around 50%, the repetitive artificial pattern stays reduced or gone
 - patch summary reports that extreme noise safety shaping is active at the extreme setting
 - when Resonance or Buttery Fuzz is lowered, patch summary reports that shaping is idle
 - Output still controls level
@@ -232,6 +238,7 @@ Use this checklist after pulling v0.28.
 - band faders remain visual-only
 - Band 5 remains silent
 - Feedback remains parked
+- PR #43 remains parked and unmerged
 
 ## What waits for later
 
@@ -294,3 +301,13 @@ Added a narrow internal safety shaper for one bad edge case: Noise on, high Reso
 The shaper gently reduces effective resonance and fuzz input drive only in that corner.
 
 Purpose: reduce the repetitive artificial pattern without weakening normal Resonance, soft Buttery Fuzz, stereo spread, analyser behaviour, or the silent Band 5 tap.
+
+### v0.29 — Stable extreme noise fuzz safety checkpoint
+
+Recorded v0.28 as stable after ear testing.
+
+No audio behaviour was changed.
+
+PR #43 / Band 5 audition remains parked and unmerged.
+
+Purpose: make the stable repo state clear before deciding whether to redesign the Band 5 audition path or move to another contained feature.
