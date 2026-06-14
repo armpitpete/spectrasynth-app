@@ -17,7 +17,15 @@ function dispatchExistingInputUpdate(slider) {
 }
 
 function getMappedValue(closeValue, farValue, distanceAmount) {
-  return Math.round(closeValue - distanceAmount * (closeValue - farValue));
+  return closeValue - distanceAmount * (closeValue - farValue);
+}
+
+function getOutputValue(closeValue, farValue, distanceAmount) {
+  return Math.round(getMappedValue(closeValue, farValue, distanceAmount));
+}
+
+function getCutoffValue(closeValue, farValue, distanceAmount) {
+  return Number(getMappedValue(closeValue, farValue, distanceAmount).toFixed(1));
 }
 
 function appendVirtualDistanceSummary(distancePercent, outputValue, cutoffValue) {
@@ -28,7 +36,7 @@ function appendVirtualDistanceSummary(distancePercent, outputValue, cutoffValue)
   }
 
   const existingSummary = patchSummaryText.textContent.replace(/ Virtual Distance is active:.*$/, "");
-  patchSummaryText.textContent = `${existingSummary} Virtual Distance is active: ${distancePercent}% distance maps to Output ${outputValue}% and Cutoff ${cutoffValue}.`;
+  patchSummaryText.textContent = `${existingSummary} Virtual Distance is active: ${distancePercent}% distance maps to Output ${outputValue}% and Cutoff ${cutoffValue.toFixed(1)}.`;
 }
 
 function initialiseVirtualDistanceControl() {
@@ -45,8 +53,8 @@ function initialiseVirtualDistanceControl() {
   const applyVirtualDistance = () => {
     const distancePercent = Number(virtualDistanceSlider.value);
     const distanceAmount = distancePercent / 100;
-    const mappedOutputValue = getMappedValue(CLOSE_OUTPUT_VALUE, FAR_OUTPUT_VALUE, distanceAmount);
-    const mappedCutoffValue = getMappedValue(CLOSE_CUTOFF_VALUE, FAR_CUTOFF_VALUE, distanceAmount);
+    const mappedOutputValue = getOutputValue(CLOSE_OUTPUT_VALUE, FAR_OUTPUT_VALUE, distanceAmount);
+    const mappedCutoffValue = getCutoffValue(CLOSE_CUTOFF_VALUE, FAR_CUTOFF_VALUE, distanceAmount);
 
     outputSlider.value = String(mappedOutputValue);
     cutoffSlider.value = String(mappedCutoffValue);
