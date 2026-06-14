@@ -1,13 +1,11 @@
 # SpectraSynth Manual
 
-Version: v0.34 Source Readout layout fix  
-Status: Source Readout layout repaired; no audio behaviour changes
+Version: v0.35 public build link  
+Status: public build link added; no audio behaviour changes
 
 ## What SpectraSynth is
 
 SpectraSynth is a browser-based Web Audio instrument prototype.
-
-The current version is not a full synthesizer yet. It is a controlled test instrument for building the sound engine one safe piece at a time.
 
 Current sound sources:
 
@@ -20,34 +18,24 @@ Current stable sound path:
 oscillator / noise → pre-fuzz low-pass filter → soft Buttery Fuzz mix → post-fuzz low-pass filter → true left/right stereo spread → master Output → analyser meters / speakers
 ```
 
-v0.34 repairs the Source Readout layout shown on the public build. It does not change audio behaviour.
-
-Feedback is parked.
-
-There is no active feedback loop in this version.
-
-The 10 spectral faders are still visual-only. They do not shape the sound yet.
-
-Band 5 Voice has a real silent internal bandpass tap at 1200 Hz with Q 1.2. It is still routed to a zero-gain internal path only.
-
-PR #43 / Band 5 audition is closed and must not be merged.
+v0.35 adds a small public build link above the app shell so the deployed GitHub Pages route is easy to find and share. It does not change audio behaviour.
 
 ## Public viewing
 
-The public site is:
+Public build:
 
 ```text
 https://armpitpete.github.io/spectrasynth-app/
 ```
 
-GitHub Pages uses **GitHub Actions** as the source.
-
-Local testing still works with:
+Local testing:
 
 ```text
 npm install
 npm run dev
 ```
+
+GitHub Pages uses **GitHub Actions** as the source.
 
 ## Current safe-audio rules
 
@@ -59,22 +47,10 @@ npm run dev
 - Cutoff shapes the sound before and after the fuzz stage
 - Resonance still reaches 40 for a stronger audible peak
 - true left/right stereo spread is added after the post-fuzz filter
-- Feedback is not connected
+- Feedback is parked and not connected
 - Panic Stop silences the app quickly
 - no fake self-oscillation is connected
 - extreme noise safety shaping is active only when Noise, high Resonance, and high Buttery Fuzz are combined
-
-## Quick start
-
-1. Open the app in the browser.
-2. Press **Start Oscillator**.
-3. Raise **Output** if needed.
-4. Move **Cutoff / Brightness**.
-5. Move **Resonance** carefully.
-6. Move **Buttery Fuzz**.
-7. Press **Start Noise** only when testing noise behaviour.
-8. Watch the **Source Readout** panel while changing controls.
-9. Press **Panic Stop** if the sound feels too strong.
 
 ## Source Readout panel
 
@@ -90,7 +66,7 @@ The Source Readout panel shows:
 
 This panel is display-only. It does not change sound.
 
-v0.34 fixes the layout so these values appear as readable cards instead of a collapsed vertical stack.
+v0.34 fixed the Source Readout layout so the values appear as readable cards instead of a collapsed vertical stack.
 
 ## Controls
 
@@ -114,12 +90,7 @@ Controls the low-pass filter cutoff.
 
 The current cutoff range is 120 Hz to 16000 Hz, with a perceptual slider curve.
 
-Cutoff controls two stages:
-
-```text
-pre-fuzz low-pass filter
-post-fuzz low-pass filter
-```
+Cutoff controls both the pre-fuzz low-pass filter and the post-fuzz low-pass filter.
 
 ### Resonance
 
@@ -131,7 +102,7 @@ The visible Resonance control reaches 40. Internally, the app gently reduces eff
 Noise on + Resonance above 30 + Buttery Fuzz above 85%
 ```
 
-At the strongest extreme setting, effective resonance is pulled toward 24. Normal resonance settings are unchanged.
+At the strongest extreme setting, effective resonance is pulled toward 24.
 
 ### Buttery Fuzz
 
@@ -147,7 +118,7 @@ fuzz output trim = 0.28
 
 The goal is audible soft buttery distortion, not raspy hard clipping.
 
-When Noise, very high Resonance, and very high Buttery Fuzz are combined, the app gently pulls the effective fuzz input drive down toward 18.0. Normal fuzz settings are unchanged.
+When Noise, very high Resonance, and very high Buttery Fuzz are combined, the app gently pulls the effective fuzz input drive down toward 18.0.
 
 ### Stereo width
 
@@ -162,47 +133,11 @@ stereo center gain = 0.62
 stereo spread gain = 0.42 per side
 ```
 
-### Feedback
-
-Feedback is parked.
-
-There is no Feedback slider in this version.
-
 ### Output
 
 Controls the final level.
 
 The Output control is clamped to a safe maximum.
-
-## Extreme noise fuzz safety
-
-The fixed problem setting was:
-
-```text
-Noise on
-Resonance full
-Buttery Fuzz full
-Cutoff / Brightness around 50%
-```
-
-The fix is a small internal safety shaper:
-
-- it checks whether Noise is running
-- it checks whether Resonance is above 30
-- it checks whether Buttery Fuzz is above 85%
-- it gradually reduces effective resonance and fuzz input drive only in that corner
-- it leaves normal Resonance and Buttery Fuzz behaviour alone
-
-At the most extreme setting:
-
-```text
-visible resonance = 40
-effective resonance target = 24
-base fuzz input drive = 26.0
-effective fuzz input drive target = 18.0
-```
-
-The patch summary and the Source Readout panel report when this shaping is active.
 
 ## Spectral Engine panel
 
@@ -216,7 +151,7 @@ faders = visual only
 Mute buttons = visual only
 ```
 
-Band 5 Voice has a real silent internal filter tap, but it is not audible in v0.34.
+Band 5 Voice has a real silent internal filter tap at 1200 Hz with Q 1.2, but it is not audible.
 
 ## Band 5 audition decision
 
@@ -230,12 +165,12 @@ Close PR #43 and redesign Band 5 audition later.
 
 No audible spectral-band work should happen until a new contained issue defines the audition method.
 
-## v0.34 test checklist
-
-Use this checklist after pulling v0.34.
+## v0.35 test checklist
 
 - public GitHub Pages URL loads the app
-- Source Readout panel uses readable cards, not a thin vertical list
+- public build link is visible above the app shell
+- public build link points to the GitHub Pages route
+- Source Readout panel still uses readable cards
 - Source Readout values still update correctly
 - oscillator starts and stops
 - noise starts and stops
@@ -269,40 +204,32 @@ Not built yet:
 
 Added a narrow internal safety shaper for one bad edge case: Noise on, high Resonance, high Buttery Fuzz, and mid Cutoff.
 
-No audio behaviour outside that safety corner was changed.
-
 ### v0.29 — Stable extreme noise fuzz safety checkpoint
 
 Recorded v0.28 as stable after ear testing.
-
-No audio behaviour was changed.
 
 ### v0.30 — Band 5 audition decision
 
 Closed PR #43 and recorded that the current audition architecture should not be merged.
 
-No audio behaviour was changed.
-
 ### v0.31 — Visible source level readout
 
 Added a display-only Source Readout panel.
-
-No audio behaviour was changed.
 
 ### v0.32 — GitHub Pages workflow
 
 Added deployment wiring for GitHub Pages.
 
-No audio behaviour was changed.
-
 ### v0.33 — Stable Pages deployment checkpoint
 
 Recorded that GitHub Pages deployment is fixed and stable.
 
-No audio behaviour was changed.
-
 ### v0.34 — Source Readout layout fix
 
 Fixed the Source Readout panel layout so the values display as readable cards instead of a collapsed vertical list.
+
+### v0.35 — Public build link
+
+Added a small public build link above the app shell.
 
 No audio behaviour was changed.
