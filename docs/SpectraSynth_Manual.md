@@ -1,6 +1,6 @@
 # SpectraSynth Manual
 
-Version: v0.20 draft  
+Version: v0.28 draft  
 Status: written alongside the prototype
 
 ## What SpectraSynth is
@@ -17,14 +17,16 @@ Current sound sources:
 Current sound path:
 
 ```text
-oscillator / noise → low-pass filter → soft Buttery Fuzz mix → post-fuzz low-pass filter → true left/right stereo spread → master Output → analyser meters / speakers
+oscillator / noise → pre-fuzz low-pass filter → soft Buttery Fuzz mix → post-fuzz low-pass filter → true left/right stereo spread → master Output → analyser meters / speakers
 ```
 
-Feedback is parked in v0.20.
+Feedback is parked in v0.28.
 
-There is no active feedback loop in this version. The previous feedback work is not deleted as a design direction, but it is not part of the v0.20 fuzz test.
+There is no active feedback loop in this version. The previous feedback work is not deleted as a design direction, but it is not part of the current safe fuzz path.
 
 The 10 spectral faders are still visual-only. They do not shape the sound yet.
+
+Band 5 Voice has a real silent internal bandpass tap at 1200 Hz with Q 1.2. It is still routed to a zero-gain internal path only.
 
 ## Current safe-audio rules
 
@@ -40,9 +42,10 @@ Current safety rules:
 - Cutoff shapes the sound before and after the fuzz stage
 - Resonance still reaches 40 for a stronger audible peak
 - true left/right stereo spread is added after the post-fuzz filter
-- Feedback is not connected in v0.20
+- Feedback is not connected in v0.28
 - Panic Stop silences the app quickly
 - no fake self-oscillation is connected
+- extreme noise safety shaping is active only when Noise, high Resonance, and high Buttery Fuzz are combined
 
 ## Quick start
 
@@ -52,7 +55,8 @@ Current safety rules:
 4. Move **Cutoff / Brightness**.
 5. Move **Resonance** carefully.
 6. Move **Buttery Fuzz**.
-7. Press **Panic Stop** if the sound feels too strong.
+7. Press **Start Noise** only when testing noise behaviour.
+8. Press **Panic Stop** if the sound feels too strong.
 
 ## Controls
 
@@ -68,6 +72,8 @@ Starts one white noise source.
 
 Noise is useful because it shows the whole filter shape clearly. It also reveals when fuzz or filtering becomes too harsh.
 
+In v0.28, Noise also activates the extreme-combination check. The check does nothing at normal settings.
+
 ### Panic Stop
 
 Silences oscillator, noise, and output quickly.
@@ -78,24 +84,32 @@ Use it whenever the sound feels too loud, too sharp, or unstable.
 
 Controls the low-pass filter cutoff.
 
-In v0.19, this range was extended from 8000 Hz to 16000 Hz.
+The current cutoff range is 120 Hz to 16000 Hz, with a perceptual slider curve. This means the lower half of the slider gives more useful dark-to-mid movement instead of wasting most of the control on very bright frequencies.
 
-In this v0.20 branch, Cutoff now controls two stages:
+Cutoff controls two stages:
 
 ```text
 pre-fuzz low-pass filter
 post-fuzz low-pass filter
 ```
 
-This was added because fuzz can create new harmonics after the first filter. The post-fuzz filter makes Cutoff feel strong again by shaping the final tone after the distortion stage.
+This is because fuzz can create new harmonics after the first filter. The post-fuzz filter makes Cutoff feel strong again by shaping the final tone after the distortion stage.
 
 ### Resonance
 
 Emphasises the first filter cutoff point.
 
-In this v0.20 branch, Resonance now reaches 40 instead of 8, so it should be much more obvious.
+Resonance reaches 40, so it can produce a strong audible peak.
 
-Higher resonance can make the sound sharper and more ring-like. Use it carefully with high cutoff.
+Higher resonance can make the sound sharper and more ring-like. Use it carefully with Noise and Buttery Fuzz.
+
+In v0.28, the visible Resonance control still reaches 40. Internally, the app gently reduces effective resonance only when this extreme combination happens:
+
+```text
+Noise on + Resonance above 30 + Buttery Fuzz above 85%
+```
+
+At the strongest extreme setting, effective resonance is pulled toward 24. Normal resonance settings are unchanged.
 
 ### Buttery Fuzz
 
@@ -105,7 +119,7 @@ At 0%, the fuzz path is effectively off and the dry filtered sound dominates.
 
 As the control rises, the input drive into the fuzz stage increases and more fuzz signal is blended into the output.
 
-The current internal limits are:
+The base internal limits are:
 
 ```text
 fuzz input gain range = 1.0 to 26.0
@@ -113,9 +127,11 @@ fuzz curve drive = 3.8
 fuzz output trim = 0.28
 ```
 
-The current curve is deliberately softer than the previous hard-clipping test. It uses rounded saturation and a small warm asymmetry, while keeping dry signal in the blend.
+The curve is deliberately soft. It uses rounded saturation and a small warm asymmetry, while keeping dry signal in the blend.
 
 The goal is audible soft buttery distortion, not raspy hard clipping.
+
+In v0.28, when Noise, very high Resonance, and very high Buttery Fuzz are combined, the app gently pulls the effective fuzz input drive down toward 18.0. Normal fuzz settings are unchanged.
 
 ### Stereo width
 
@@ -134,15 +150,51 @@ stereo spread gain = 0.42 per side
 
 ### Feedback
 
-Feedback is parked in v0.20.
+Feedback is parked in v0.28.
 
-There is no Feedback slider in this version. Feedback should not be tested until the fuzz tone is good.
+There is no Feedback slider in this version. Feedback should not be tested until the core tone is stable.
 
 ### Output
 
 Controls the final level.
 
 The Output control is clamped to a safe maximum. At 100%, it is still deliberately limited.
+
+## Extreme noise fuzz safety
+
+v0.28 fixes a specific bad edge case.
+
+Problem setting:
+
+```text
+Noise on
+Resonance full
+Buttery Fuzz full
+Cutoff / Brightness around 50%
+```
+
+At this setting, the sound could develop a repetitive artificial pattern. The likely cause is a high-Q filter and full fuzz drive exaggerating one narrow noise peak until it starts to sound periodic.
+
+The fix is not a limiter and not a compressor.
+
+The fix is a small internal safety shaper:
+
+- it checks whether Noise is running
+- it checks whether Resonance is above 30
+- it checks whether Buttery Fuzz is above 85%
+- it gradually reduces effective resonance and fuzz input drive only in that corner
+- it leaves normal Resonance and Buttery Fuzz behaviour alone
+
+At the most extreme setting:
+
+```text
+visible resonance = 40
+effective resonance target = 24
+base fuzz input drive = 26.0
+effective fuzz input drive target = 18.0
+```
+
+The patch summary reports when this shaping is active.
 
 ## Spectral Engine panel
 
@@ -155,35 +207,38 @@ Current rule:
 ```text
 meters = real audio data
 faders = visual only
+Mute buttons = visual only
 ```
 
-## v0.20 test checklist
+Band 5 Voice has a real silent internal filter tap, but it is not audible in v0.28.
 
-Use this checklist after pulling v0.20.
+## v0.28 test checklist
+
+Use this checklist after pulling v0.28.
 
 - app loads
-- header says `v0.20 buttery fuzz distortion`
+- header says `v0.28 extreme noise fuzz safety`
 - oscillator starts and stops
 - noise starts and stops
-- Cutoff / Brightness strongly changes the tone even when Buttery Fuzz is high
-- Buttery Fuzz slider works from 0 to 100
-- oscillator gains soft rounded distortion as Buttery Fuzz rises
-- noise gains character without becoming raspy or brittle
-- Resonance is much more obvious than before
-- stereo image feels wider than a plain mono centre signal
-- Cutoff / Brightness still reaches 16000 Hz
+- Cutoff / Brightness still changes the tone strongly
+- Resonance is still strong at normal settings
+- Buttery Fuzz is still soft and audible at normal settings
+- with Noise on, Resonance full, Buttery Fuzz full, and Cutoff around 50%, the repetitive artificial pattern is reduced or gone
+- patch summary reports that extreme noise safety shaping is active at the extreme setting
+- when Resonance or Buttery Fuzz is lowered, patch summary reports that shaping is idle
 - Output still controls level
 - Panic Stop silences everything
 - analyser meters still respond
 - band faders remain visual-only
-
-Do not test feedback in v0.20. Feedback is parked until the fuzz tone is good.
+- Band 5 remains silent
+- Feedback remains parked
 
 ## What waits for later
 
 Not built yet:
 
 - active feedback with fuzz
+- audible Band 5 audition path
 - microphone input
 - vocoder mode
 - MIDI
@@ -206,15 +261,13 @@ Purpose: make feedback less brittle and less electronic without adding a separat
 
 Raised the Cutoff / Brightness maximum from 8000 Hz to 16000 Hz.
 
-Purpose: let the filter open properly before adding fuzz distortion in v0.20.
+Purpose: let the filter open properly before adding fuzz distortion.
 
 ### v0.20 — Buttery fuzz distortion
 
 Added a Buttery Fuzz amount control after the low-pass filter.
 
-Retuned the fuzz several times after testing showed two separate failures: first it was not obvious enough, then it became too hard and raspy.
-
-Current direction: soft rounded saturation with enough drive to be audible.
+Retuned the fuzz after testing showed two separate failures: first it was not obvious enough, then it became too hard and raspy.
 
 Raised Resonance maximum from 8 to 40.
 
@@ -222,6 +275,22 @@ Added a post-fuzz low-pass filter controlled by Cutoff so distortion does not we
 
 Added a true left/right stereo-width branch after the post-fuzz filter.
 
-Feedback is parked in this version. The v0.20 target is good fuzz only.
+Feedback was parked.
 
 Purpose: give the oscillator and noise an audible soft buttery distortion edge before reconnecting feedback later.
+
+### v0.26 — Stable silent Band 5 tap checkpoint
+
+Added a real Band 5 Voice bandpass filter at 1200 Hz with Q 1.2.
+
+The tap was routed only to an internal zero-gain path.
+
+Purpose: prove the first spectral-band tap can exist safely before making any band audible.
+
+### v0.28 — Extreme noise fuzz safety
+
+Added a narrow internal safety shaper for one bad edge case: Noise on, high Resonance, high Buttery Fuzz, and mid Cutoff.
+
+The shaper gently reduces effective resonance and fuzz input drive only in that corner.
+
+Purpose: reduce the repetitive artificial pattern without weakening normal Resonance, soft Buttery Fuzz, stereo spread, analyser behaviour, or the silent Band 5 tap.
