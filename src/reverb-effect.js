@@ -1,6 +1,6 @@
-const MAX_REVERB_WET_GAIN = 0.30;
-const REVERB_DECAY_SECONDS = 1.15;
-const REVERB_PRE_DELAY_SECONDS = 0.018;
+const MAX_REVERB_WET_GAIN = 0.38;
+const REVERB_DECAY_SECONDS = 4.6;
+const REVERB_PRE_DELAY_SECONDS = 0.045;
 const STEREO_SPREAD_DELAY_LIMIT_SECONDS = 0.03;
 const CONNECT_PATCH_FLAG = "__spectraSynthReverbConnectPatched";
 
@@ -29,7 +29,7 @@ function getReverbAmount() {
   return Number(reverbSlider.value) / 100;
 }
 
-function createSmallRoomImpulse(context) {
+function createCathedralImpulse(context) {
   const length = Math.max(1, Math.floor(context.sampleRate * REVERB_DECAY_SECONDS));
   const impulse = context.createBuffer(2, length, context.sampleRate);
 
@@ -38,9 +38,12 @@ function createSmallRoomImpulse(context) {
 
     for (let index = 0; index < length; index += 1) {
       const position = index / length;
-      const decay = Math.pow(1 - position, 2.2);
-      const earlyReflection = index < context.sampleRate * 0.09 ? 0.55 : 1;
-      channelData[index] = (Math.random() * 2 - 1) * decay * earlyReflection * 0.42;
+      const slowTail = Math.pow(1 - position, 1.28);
+      const lateBloom = Math.sin(position * Math.PI) * 0.18;
+      const earlyReflection = index < context.sampleRate * 0.18 ? 0.42 : 1;
+      const stereoOffset = channel === 0 ? 0.91 : 1.0;
+
+      channelData[index] = (Math.random() * 2 - 1) * (slowTail + lateBloom) * earlyReflection * stereoOffset * 0.55;
     }
   }
 
@@ -62,7 +65,7 @@ function updateReverbSummary() {
     return;
   }
 
-  patchSummaryText.textContent = `${existingSummary} Reverb is active: ${reverbPercent}% adds a controlled room space with no feedback loop.`;
+  patchSummaryText.textContent = `${existingSummary} Reverb is active: ${reverbPercent}% adds a cathedral-style space with a long tail and no feedback loop.`;
 }
 
 function updateReverbFromSlider() {
@@ -85,12 +88,12 @@ function ensureReverbBranch() {
   }
 
   const context = reverbSourceNode.context;
-  reverbPreDelay = context.createDelay(0.08);
+  reverbPreDelay = context.createDelay(0.12);
   reverbConvolver = context.createConvolver();
   reverbWetGain = context.createGain();
 
   reverbPreDelay.delayTime.setValueAtTime(REVERB_PRE_DELAY_SECONDS, context.currentTime);
-  reverbConvolver.buffer = createSmallRoomImpulse(context);
+  reverbConvolver.buffer = createCathedralImpulse(context);
   reverbWetGain.gain.setValueAtTime(getReverbAmount() * MAX_REVERB_WET_GAIN, context.currentTime);
 
   originalConnect.call(reverbSourceNode, reverbPreDelay);
