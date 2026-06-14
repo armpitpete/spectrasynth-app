@@ -1,0 +1,24 @@
+.app-shell {
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+.app-header {
+  order: 1;
+}
+
+.source-readout-panel {
+  order: 2;
+}
+
+.control-grid {
+  order: 3;
+}
+
+.spectral-panel {
+  order: 4;
+}
+
+.patch-summary {
+  order: 5;
+}
