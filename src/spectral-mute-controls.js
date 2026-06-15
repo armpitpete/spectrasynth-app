@@ -42,7 +42,7 @@ function updateSpectralPanelWording() {
     return;
   }
 
-  spectralPanelNote.textContent = "Faders shape the audible spectral bands. Mute and Unmute now update the same audio band state.";
+  spectralPanelNote.textContent = "Band 5 Voice is the only audible Spectral Engine test band. Other faders and Mute/Unmute buttons remain UI-only.";
 }
 
 function initialiseSpectralMuteControls() {
