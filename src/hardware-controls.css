@@ -116,3 +116,57 @@ input[type="range"]::-moz-range-thumb {
   width: 1rem;
   height: 1rem;
 }
+
+.source-readout-panel {
+  padding: 0.55rem 0.75rem !important;
+  gap: 0.45rem !important;
+}
+
+.source-readout-panel h2 {
+  margin: 0 !important;
+  font-size: 0.68rem !important;
+  line-height: 1 !important;
+  letter-spacing: 0.11em !important;
+}
+
+.source-readout-panel .panel-note {
+  margin: 0 !important;
+  font-size: 0.68rem !important;
+  line-height: 1.15 !important;
+}
+
+.source-readout-panel .panel-header,
+.source-readout-panel > header {
+  min-height: 0 !important;
+  margin-bottom: 0.35rem !important;
+  align-items: center !important;
+}
+
+.source-readout-panel .source-readout-grid,
+.source-readout-panel .readout-grid {
+  gap: 0.4rem !important;
+}
+
+.source-readout-panel .source-readout-card,
+.source-readout-panel .readout-card,
+.source-readout-panel [class*="readout-card"] {
+  min-height: 2.3rem !important;
+  padding: 0.38rem 0.5rem !important;
+  border-radius: 0.55rem !important;
+}
+
+.source-readout-panel .source-readout-label,
+.source-readout-panel .readout-label,
+.source-readout-panel [class*="readout-label"] {
+  margin: 0 0 0.08rem !important;
+  font-size: 0.54rem !important;
+  line-height: 1 !important;
+  letter-spacing: 0.1em !important;
+}
+
+.source-readout-panel .source-readout-value,
+.source-readout-panel .readout-value,
+.source-readout-panel [class*="readout-value"] {
+  font-size: 0.82rem !important;
+  line-height: 1.05 !important;
+}
