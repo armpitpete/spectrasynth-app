@@ -215,17 +215,22 @@ input[type="range"]::-moz-range-thumb {
 }
 
 .public-build-strip {
-  top: 3.25rem !important;
-  gap: 0.34rem !important;
+  top: 3.95rem !important;
+  right: max(1rem, calc((100vw - 1440px) / 2 + 1rem)) !important;
+  gap: 0 !important;
   font-size: 0.54rem !important;
 }
 
+.public-build-strip span {
+  display: none !important;
+}
+
 .public-build-strip a {
-  padding: 0.22rem 0.5rem !important;
+  padding: 0.18rem 0.46rem !important;
 }
 
 .public-build-strip a::after {
-  font-size: 0.6rem !important;
+  font-size: 0.58rem !important;
 }
 
 .source-readout-panel {
