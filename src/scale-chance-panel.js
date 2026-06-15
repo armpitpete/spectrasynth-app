@@ -15,12 +15,27 @@ const NOTE_RANGE = Array.from({ length: 6 }, (_, octaveIndex) =>
 ).flat();
 const ARP_NOTE_DEFAULTS = ["C2", "E2", "G2", "C3", "E3", "G3", "C4", "E4", "G4", "C5", "E5", "G5"];
 const ARP_NOTE_COUNTS = Array.from({ length: 12 }, (_, noteIndex) => String(noteIndex + 1));
+const CLUSTER_COUNTS = ["1", "2", "3", "4"];
+const CLUSTER_SIZES = ["1", "2", "3", "4", "5", "6"];
+const CLUSTER_NOTE_DEFAULTS = [
+  ["C2", "E2", "G2", "C3", "E3", "G3"],
+  ["D2", "F2", "A2", "D3", "F3", "A3"],
+  ["G2", "B2", "D3", "G3", "B3", "D4"],
+  ["A2", "C3", "E3", "A3", "C4", "E4"],
+];
 const ARP_DIRECTIONS = [
   ["as-selected", "As Selected"],
   ["up", "Up"],
   ["down", "Down"],
   ["up-down", "Up / Down"],
   ["down-up", "Down / Up"],
+  ["random", "Random"],
+];
+const CLUSTER_DIRECTIONS = [
+  ["as-selected", "As Selected"],
+  ["up", "Up"],
+  ["down", "Down"],
+  ["up-down", "Up / Down"],
   ["random", "Random"],
 ];
 
@@ -48,6 +63,26 @@ function getArpNoteMarkup() {
         </label>
       `
     )
+    .join("");
+}
+
+function getClusterNoteMarkup() {
+  return CLUSTER_NOTE_DEFAULTS
+    .map((clusterNotes, clusterIndex) => `
+      <fieldset class="cluster-fieldset">
+        <legend>Cluster ${clusterIndex + 1}</legend>
+        ${clusterNotes
+          .map((selectedNote, noteIndex) => `
+            <label>
+              Cluster ${clusterIndex + 1} Note ${noteIndex + 1}
+              <select id="scaleChanceCluster${clusterIndex + 1}Note${noteIndex + 1}">
+                ${getOptionMarkup(NOTE_RANGE, selectedNote)}
+              </select>
+            </label>
+          `)
+          .join("")}
+      </fieldset>
+    `)
     .join("");
 }
 
@@ -139,6 +174,34 @@ function injectScaleChancePanel() {
       </select>
     </label>
     ${getArpNoteMarkup()}
+    <h3>Arp Clusters</h3>
+    <p class="panel-note">Visual-only cluster controls. They do not change Cutoff movement yet.</p>
+    <label>
+      Cluster Mode
+      <select id="scaleChanceClusterMode">
+        <option value="off" selected>Off</option>
+        <option value="on">On</option>
+      </select>
+    </label>
+    <label>
+      Cluster Count
+      <select id="scaleChanceClusterCount">
+        ${getOptionMarkup(CLUSTER_COUNTS, "2")}
+      </select>
+    </label>
+    <label>
+      Cluster Size
+      <select id="scaleChanceClusterSize">
+        ${getOptionMarkup(CLUSTER_SIZES, "3")}
+      </select>
+    </label>
+    <label>
+      Cluster Direction
+      <select id="scaleChanceClusterDirection">
+        ${getValueLabelOptionMarkup(CLUSTER_DIRECTIONS, "as-selected")}
+      </select>
+    </label>
+    ${getClusterNoteMarkup()}
   `;
 
   controlGrid.appendChild(scaleChancePanel);
@@ -147,6 +210,13 @@ function injectScaleChancePanel() {
 function getArpDirectionLabel() {
   const arpDirection = document.querySelector("#scaleChanceArpDirection")?.value ?? "as-selected";
   const matchedDirection = ARP_DIRECTIONS.find(([value]) => value === arpDirection);
+
+  return matchedDirection?.[1] ?? "As Selected";
+}
+
+function getClusterDirectionLabel() {
+  const clusterDirection = document.querySelector("#scaleChanceClusterDirection")?.value ?? "as-selected";
+  const matchedDirection = CLUSTER_DIRECTIONS.find(([value]) => value === clusterDirection);
 
   return matchedDirection?.[1] ?? "As Selected";
 }
@@ -165,6 +235,28 @@ function getArpSummaryText() {
   );
 
   return ` Arp mode ${arpMode.value}, direction ${getArpDirectionLabel()}, ${noteCount} notes: ${notes.join(" → ")}.`;
+}
+
+function getClusterSummaryText() {
+  const clusterMode = document.querySelector("#scaleChanceClusterMode");
+  const clusterCount = document.querySelector("#scaleChanceClusterCount");
+  const clusterSize = document.querySelector("#scaleChanceClusterSize");
+
+  if (!clusterMode || !clusterCount || !clusterSize) {
+    return "";
+  }
+
+  const count = Number(clusterCount.value);
+  const size = Number(clusterSize.value);
+  const clusterSummaries = Array.from({ length: count }, (_, clusterIndex) => {
+    const notes = Array.from({ length: size }, (_, noteIndex) =>
+      document.querySelector(`#scaleChanceCluster${clusterIndex + 1}Note${noteIndex + 1}`)?.value ?? "C2"
+    );
+
+    return `Cluster ${clusterIndex + 1}: ${notes.join(" → ")}`;
+  });
+
+  return ` Arp Clusters are visual-only: mode ${clusterMode.value}, ${count} clusters, ${size} notes each, direction ${getClusterDirectionLabel()}. ${clusterSummaries.join(". ")}.`;
 }
 
 function appendScaleChanceSummary() {
@@ -187,7 +279,7 @@ function appendScaleChanceSummary() {
 
   const existingSummary = patchSummaryText.textContent.replace(/ Scale Chance.*$/, "");
   const modeText = enabled.value === "on" ? "active" : "off";
-  patchSummaryText.textContent = `${existingSummary} Scale Chance is ${modeText}: ${root.value} ${scale.value}, range ${lowNote.value} to ${highNote.value}, randomness ${randomness.value}%, pitch centre ${pitchCentre.value}%, note length ${noteLength.value} ms, note gap ${noteGap.value} ms, rest chance ${restChance.value}%, repeat chance ${repeatChance.value}%. It controls rhythmic musical Cutoff / Brightness movement only.${getArpSummaryText()}`;
+  patchSummaryText.textContent = `${existingSummary} Scale Chance is ${modeText}: ${root.value} ${scale.value}, range ${lowNote.value} to ${highNote.value}, randomness ${randomness.value}%, pitch centre ${pitchCentre.value}%, note length ${noteLength.value} ms, note gap ${noteGap.value} ms, rest chance ${restChance.value}%, repeat chance ${repeatChance.value}%. It controls rhythmic musical Cutoff / Brightness movement only.${getArpSummaryText()}${getClusterSummaryText()}`;
 }
 
 function initialiseScaleChancePanel() {
