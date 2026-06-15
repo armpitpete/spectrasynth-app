@@ -14,6 +14,7 @@ const NOTE_RANGE = Array.from({ length: 6 }, (_, octaveIndex) =>
   NOTE_NAMES.map((noteName) => `${noteName}${octaveIndex + 1}`)
 ).flat();
 const ARP_NOTE_DEFAULTS = ["C2", "E2", "G2", "C3", "E3", "G3", "C4", "E4", "G4", "C5", "E5", "G5"];
+const ARP_NOTE_COUNTS = Array.from({ length: 12 }, (_, noteIndex) => String(noteIndex + 1));
 const ARP_DIRECTIONS = [
   ["as-selected", "As Selected"],
   ["up", "Up"],
@@ -133,7 +134,9 @@ function injectScaleChancePanel() {
     </label>
     <label>
       Arp Notes
-      <input id="scaleChanceArpNoteCount" type="range" min="1" max="12" step="1" value="4" />
+      <select id="scaleChanceArpNoteCount">
+        ${getOptionMarkup(ARP_NOTE_COUNTS, "4")}
+      </select>
     </label>
     ${getArpNoteMarkup()}
   `;
