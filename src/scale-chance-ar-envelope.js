@@ -1,10 +1,12 @@
-const DEFAULT_OUTPUT_VALUE = 70;
 const MINIMUM_RAMP_MS = 5;
+const OSCILLATOR_BASE_GAIN = 0.08;
+const NOISE_BASE_GAIN = 0.05;
 
-let baseOutputValue = DEFAULT_OUTPUT_VALUE;
-let isApplyingEnvelope = false;
-let rampFrame = null;
+const trackedSourceGains = new Set();
+const sourceGainTargets = new WeakMap();
+
 let releaseTimer = null;
+let isConnectPatched = false;
 
 function getControl(id) {
   return document.querySelector(`#${id}`);
@@ -12,10 +14,6 @@ function getControl(id) {
 
 function clamp(value, minimum, maximum) {
   return Math.min(maximum, Math.max(minimum, value));
-}
-
-function getOutputSlider() {
-  return getControl("outputSlider");
 }
 
 function isArEnvelopeOn() {
@@ -30,64 +28,124 @@ function getReleaseMs() {
   return clamp(Number(getControl("scaleChanceArRelease")?.value ?? 180), 5, 2000);
 }
 
-function cancelEnvelopeTimers() {
-  if (rampFrame) {
-    cancelAnimationFrame(rampFrame);
-    rampFrame = null;
+function isOscillatorNode(node) {
+  return typeof OscillatorNode !== "undefined" && node instanceof OscillatorNode;
+}
+
+function isBufferSourceNode(node) {
+  return typeof AudioBufferSourceNode !== "undefined" && node instanceof AudioBufferSourceNode;
+}
+
+function isGainNode(node) {
+  return typeof GainNode !== "undefined" && node instanceof GainNode;
+}
+
+function getBaseGainForSourceNode(sourceNode) {
+  if (isOscillatorNode(sourceNode)) {
+    return OSCILLATOR_BASE_GAIN;
   }
 
+  if (isBufferSourceNode(sourceNode)) {
+    return NOISE_BASE_GAIN;
+  }
+
+  return null;
+}
+
+function rememberSourceGain(sourceNode, destinationNode) {
+  if (!isGainNode(destinationNode)) {
+    return;
+  }
+
+  const baseGain = getBaseGainForSourceNode(sourceNode);
+
+  if (baseGain === null) {
+    return;
+  }
+
+  trackedSourceGains.add(destinationNode);
+  sourceGainTargets.set(destinationNode, baseGain);
+
+  if (isArEnvelopeOn()) {
+    setGainImmediately(destinationNode, 0);
+  }
+}
+
+function patchAudioConnect() {
+  if (isConnectPatched || typeof AudioNode === "undefined") {
+    return;
+  }
+
+  const originalConnect = AudioNode.prototype.connect;
+
+  AudioNode.prototype.connect = function patchedConnect(destinationNode, ...args) {
+    const result = originalConnect.call(this, destinationNode, ...args);
+    rememberSourceGain(this, destinationNode);
+    return result;
+  };
+
+  isConnectPatched = true;
+}
+
+function cancelReleaseTimer() {
   if (releaseTimer) {
     clearTimeout(releaseTimer);
     releaseTimer = null;
   }
 }
 
-function setOutputValue(value) {
-  const outputSlider = getOutputSlider();
-
-  if (!outputSlider) {
-    return;
-  }
-
-  isApplyingEnvelope = true;
-  outputSlider.value = String(clamp(value, 0, 100));
-  outputSlider.dispatchEvent(new Event("input", { bubbles: true }));
-  isApplyingEnvelope = false;
+function getSafeAudioParamValue(audioParam, fallbackValue) {
+  const currentValue = Number(audioParam.value);
+  return Number.isFinite(currentValue) ? currentValue : fallbackValue;
 }
 
-function getCurrentOutputValue() {
-  return Number(getOutputSlider()?.value ?? baseOutputValue);
+function setGainImmediately(gainNode, targetValue) {
+  const now = gainNode.context.currentTime;
+
+  gainNode.gain.cancelScheduledValues(now);
+  gainNode.gain.setValueAtTime(targetValue, now);
 }
 
-function rampOutputValue(targetValue, durationMs) {
-  const startValue = getCurrentOutputValue();
-  const safeDuration = Math.max(MINIMUM_RAMP_MS, durationMs);
-  const startTime = performance.now();
+function rampGainTo(gainNode, targetValue, durationMs) {
+  const now = gainNode.context.currentTime;
+  const safeDurationSeconds = Math.max(MINIMUM_RAMP_MS, durationMs) / 1000;
+  const currentValue = getSafeAudioParamValue(gainNode.gain, targetValue);
 
-  if (rampFrame) {
-    cancelAnimationFrame(rampFrame);
-    rampFrame = null;
-  }
-
-  const step = (now) => {
-    const amount = clamp((now - startTime) / safeDuration, 0, 1);
-    const nextValue = startValue + (targetValue - startValue) * amount;
-
-    setOutputValue(nextValue);
-
-    if (amount < 1) {
-      rampFrame = requestAnimationFrame(step);
-    } else {
-      rampFrame = null;
-    }
-  };
-
-  rampFrame = requestAnimationFrame(step);
+  gainNode.gain.cancelScheduledValues(now);
+  gainNode.gain.setValueAtTime(currentValue, now);
+  gainNode.gain.linearRampToValueAtTime(targetValue, now + safeDurationSeconds);
 }
 
-function resetOutputToBase() {
-  cancelEnvelopeTimers();
-  setOutputValue(baseOutputValue);
+function triggerSourceAttack(attackMs) {
+  trackedSourceGains.forEach((gainNode) => {
+    const targetGain = sourceGainTargets.get(gainNode) ?? 0;
+
+    setGainImmediately(gainNode, 0);
+    rampGainTo(gainNode, targetGain, attackMs);
+  });
+}
+
+function triggerSourceRelease(releaseMs) {
+  trackedSourceGains.forEach((gainNode) => {
+    rampGainTo(gainNode, 0, releaseMs);
+  });
+}
+
+function restoreSourceGains() {
+  cancelReleaseTimer();
+
+  trackedSourceGains.forEach((gainNode) => {
+    const targetGain = sourceGainTargets.get(gainNode) ?? 0;
+    rampGainTo(gainNode, targetGain, 30);
+  });
+}
+
+function silenceSourceGains() {
+  cancelReleaseTimer();
+
+  trackedSourceGains.forEach((gainNode) => {
+    rampGainTo(gainNode, 0, MINIMUM_RAMP_MS);
+  });
 }
 
 function triggerArEnvelope(event) {
@@ -99,43 +157,35 @@ function triggerArEnvelope(event) {
   const attackMs = getAttackMs();
   const releaseMs = getReleaseMs();
 
-  cancelEnvelopeTimers();
-  setOutputValue(0);
-  rampOutputValue(baseOutputValue, attackMs);
+  cancelReleaseTimer();
+  triggerSourceAttack(attackMs);
 
   releaseTimer = setTimeout(() => {
-    rampOutputValue(0, releaseMs);
+    triggerSourceRelease(releaseMs);
   }, Math.max(MINIMUM_RAMP_MS, noteLengthMs));
 }
 
 function initialiseScaleChanceArEnvelope() {
-  const outputSlider = getOutputSlider();
   const arEnvelopeControl = getControl("scaleChanceArEnvelopeEnabled");
   const panicButton = getControl("panicButton");
 
-  if (!outputSlider || !arEnvelopeControl) {
+  if (!arEnvelopeControl) {
     return;
   }
 
-  baseOutputValue = Number(outputSlider.value || DEFAULT_OUTPUT_VALUE);
-
-  outputSlider.addEventListener("input", () => {
-    if (!isApplyingEnvelope) {
-      baseOutputValue = Number(outputSlider.value || DEFAULT_OUTPUT_VALUE);
-    }
-  });
+  patchAudioConnect();
 
   arEnvelopeControl.addEventListener("change", () => {
-    if (!isArEnvelopeOn()) {
-      resetOutputToBase();
+    if (isArEnvelopeOn()) {
+      silenceSourceGains();
+      return;
     }
+
+    restoreSourceGains();
   });
 
   if (panicButton) {
-    panicButton.addEventListener("click", () => {
-      cancelEnvelopeTimers();
-      setOutputValue(0);
-    });
+    panicButton.addEventListener("click", silenceSourceGains);
   }
 
   document.addEventListener("spectraSynthScaleChanceNote", triggerArEnvelope);
