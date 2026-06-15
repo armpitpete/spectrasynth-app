@@ -3,6 +3,7 @@ const SPECTRAL_BAND_Q = [1.15, 1.2, 1.25, 1.3, 1.35, 1.35, 1.3, 1.25, 1.2, 1.15]
 const MAX_BAND_GAIN = 0.24;
 const GAIN_RAMP_SECONDS = 0.02;
 const MAX_GRAPH_SEARCH_DEPTH = 10;
+const SPECTRAL_MUTE_CHANGE_EVENT = "spectral-band-mute-change";
 
 const trackedSpectralBanks = new Set();
 const patchedSources = new WeakSet();
@@ -160,6 +161,12 @@ function updateSpectralBandGains() {
   });
 }
 
+function scheduleSpectralBandGainsUpdate() {
+  updateSpectralBandGains();
+  window.requestAnimationFrame(updateSpectralBandGains);
+  window.setTimeout(updateSpectralBandGains, 0);
+}
+
 function patchAudioConnect() {
   if (isConnectPatched || typeof AudioNode === "undefined") {
     return;
@@ -196,7 +203,7 @@ function updateSpectralPanelWording() {
     return;
   }
 
-  spectralPanelNote.textContent = "Faders shape the audible spectral bands. All bands muted should silence the Spectral Engine contribution.";
+  spectralPanelNote.textContent = "Faders shape the audible spectral bands. Mute and Unmute should both update the audio band state.";
 }
 
 function updatePatchSummaryWording() {
@@ -219,7 +226,7 @@ function initialiseSpectralBandAudio() {
 
   getBandFaders().forEach((fader) => {
     fader.addEventListener("input", () => {
-      updateSpectralBandGains();
+      scheduleSpectralBandGainsUpdate();
       window.requestAnimationFrame(updatePatchSummaryWording);
     });
   });
@@ -227,10 +234,15 @@ function initialiseSpectralBandAudio() {
   getMuteButtons().forEach((button) => {
     button.addEventListener("click", () => {
       window.requestAnimationFrame(() => {
-        updateSpectralBandGains();
+        scheduleSpectralBandGainsUpdate();
         updatePatchSummaryWording();
       });
     });
+  });
+
+  window.addEventListener(SPECTRAL_MUTE_CHANGE_EVENT, () => {
+    scheduleSpectralBandGainsUpdate();
+    updatePatchSummaryWording();
   });
 }
 
