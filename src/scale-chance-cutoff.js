@@ -113,6 +113,35 @@ function getSelectedArpMidiNotes() {
   return selectedNotes.length >= MIN_ARP_NOTES ? selectedNotes : [parseNoteName("C2"), parseNoteName("C3")];
 }
 
+function getArpDirection() {
+  return getControl("scaleChanceArpDirection")?.value ?? "as-selected";
+}
+
+function getDirectedArpMidiNotes() {
+  const selectedNotes = getSelectedArpMidiNotes();
+  const ascendingNotes = [...selectedNotes].sort((a, b) => a - b);
+  const descendingNotes = [...ascendingNotes].reverse();
+
+  switch (getArpDirection()) {
+    case "up":
+      return ascendingNotes;
+    case "down":
+      return descendingNotes;
+    case "up-down":
+      return ascendingNotes.length > 2
+        ? [...ascendingNotes, ...ascendingNotes.slice(1, -1).reverse()]
+        : ascendingNotes;
+    case "down-up":
+      return descendingNotes.length > 2
+        ? [...descendingNotes, ...descendingNotes.slice(1, -1).reverse()]
+        : descendingNotes;
+    case "random":
+    case "as-selected":
+    default:
+      return selectedNotes;
+  }
+}
+
 function isArpModeOn() {
   return getControl("scaleChanceArpMode")?.value === "on";
 }
@@ -154,7 +183,12 @@ function getWeightedRandomNote(candidates) {
 }
 
 function getNextArpMidiNote() {
-  const arpNotes = getSelectedArpMidiNotes();
+  const arpNotes = getDirectedArpMidiNotes();
+
+  if (getArpDirection() === "random") {
+    return arpNotes[Math.floor(Math.random() * arpNotes.length)];
+  }
+
   const midiNote = arpNotes[arpStepIndex % arpNotes.length];
   arpStepIndex += 1;
   return midiNote;
@@ -206,7 +240,8 @@ function appendScaleChanceEngineSummary(extraText = "") {
     return;
   }
 
-  const arpText = isArpModeOn() ? " Arp Mode is on." : " Arp Mode is off.";
+  const directionText = getArpDirection().replaceAll("-", " / ");
+  const arpText = isArpModeOn() ? ` Arp Mode is on: ${directionText}.` : " Arp Mode is off.";
   const existingSummary = patchSummaryText.textContent.replace(/ Scale Chance engine:.*$/, "");
   patchSummaryText.textContent = `${existingSummary} Scale Chance engine: rhythmic musical Cutoff movement is ${isScaleChanceOn() ? "active" : "off"}.${arpText} Last target: ${lastChosenLabel}. ${extraText}`.trim();
 }
