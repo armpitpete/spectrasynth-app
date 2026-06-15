@@ -1,7 +1,7 @@
 const SPECTRAL_BAND_FREQUENCIES = [80, 160, 320, 640, 1200, 2200, 3800, 6200, 9000, 12500];
-const SPECTRAL_BAND_Q = [0.8, 0.9, 1.0, 1.05, 1.15, 1.2, 1.25, 1.25, 1.15, 1.0];
-const SPECTRAL_DRY_GAIN = 0.5;
-const MAX_BAND_GAIN = 0.16;
+const SPECTRAL_BAND_Q = [1.15, 1.2, 1.25, 1.3, 1.35, 1.35, 1.3, 1.25, 1.2, 1.15];
+const SPECTRAL_DRY_GAIN = 0.12;
+const MAX_BAND_GAIN = 0.32;
 const GAIN_RAMP_SECONDS = 0.02;
 
 const trackedSpectralBanks = new Set();
@@ -35,10 +35,14 @@ function isLikelySourceGain(sourceNode) {
   return typeof GainNode !== "undefined" && sourceNode instanceof GainNode;
 }
 
+function isLikelyNoiseSource(sourceNode) {
+  return sourceNode?.constructor?.name === "AudioBufferSourceNode";
+}
+
 function isLikelyAudioSource(sourceNode) {
   return (
     (typeof OscillatorNode !== "undefined" && sourceNode instanceof OscillatorNode) ||
-    (typeof AudioBufferSourceNode !== "undefined" && sourceNode instanceof AudioBufferSourceNode)
+    isLikelyNoiseSource(sourceNode)
   );
 }
 
@@ -52,16 +56,7 @@ function getBandTargetGain(bandIndex) {
     return 0;
   }
 
-  return Math.pow(faderAmount, 1.15) * MAX_BAND_GAIN;
-}
-
-function disconnectDirectSourcePath(sourceNode, destinationNode) {
-  try {
-    sourceNode.disconnect(destinationNode);
-  } catch {
-    // If the browser cannot disconnect this exact connection, leave the dry path intact.
-    // The spectral layer will still be added, but the fader effect may be less strong.
-  }
+  return faderAmount * MAX_BAND_GAIN;
 }
 
 function createSpectralBank(sourceNode, destinationNode) {
@@ -76,7 +71,6 @@ function createSpectralBank(sourceNode, destinationNode) {
 
   dryGain.gain.setValueAtTime(SPECTRAL_DRY_GAIN, context.currentTime);
 
-  disconnectDirectSourcePath(sourceNode, destinationNode);
   originalAudioConnect.call(sourceNode, dryGain);
   originalAudioConnect.call(dryGain, destinationNode);
 
@@ -116,17 +110,16 @@ function patchAudioConnect() {
   originalAudioConnect = AudioNode.prototype.connect;
 
   AudioNode.prototype.connect = function patchedConnect(destinationNode, ...args) {
-    const result = originalAudioConnect.call(this, destinationNode, ...args);
-
     if (isLikelyAudioSource(this) && isLikelySourceGain(destinationNode)) {
       sourceOutputGains.add(destinationNode);
     }
 
-    if (sourceOutputGains.has(this) && isLikelyMainToneFilter(destinationNode)) {
+    if (args.length === 0 && sourceOutputGains.has(this) && isLikelyMainToneFilter(destinationNode)) {
       createSpectralBank(this, destinationNode);
+      return destinationNode;
     }
 
-    return result;
+    return originalAudioConnect.call(this, destinationNode, ...args);
   };
 
   isConnectPatched = true;
