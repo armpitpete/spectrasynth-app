@@ -133,7 +133,7 @@ function injectScaleChancePanel() {
     </label>
     <label>
       Arp Notes
-      <input id="scaleChanceArpNoteCount" type="range" min="2" max="12" step="1" value="4" />
+      <input id="scaleChanceArpNoteCount" type="range" min="1" max="12" step="1" value="4" />
     </label>
     ${getArpNoteMarkup()}
   `;
