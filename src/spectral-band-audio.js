@@ -1,12 +1,13 @@
 const SPECTRAL_BAND_FREQUENCIES = [80, 160, 320, 640, 1200, 2200, 3800, 6200, 9000, 12500];
 const SPECTRAL_BAND_Q = [1.15, 1.2, 1.25, 1.3, 1.35, 1.35, 1.3, 1.25, 1.2, 1.15];
-const SPECTRAL_DRY_GAIN = 0.12;
-const MAX_BAND_GAIN = 0.32;
+const MAX_BAND_GAIN = 0.24;
 const GAIN_RAMP_SECONDS = 0.02;
+const MAX_GRAPH_SEARCH_DEPTH = 10;
 
 const trackedSpectralBanks = new Set();
 const patchedSources = new WeakSet();
 const sourceOutputGains = new WeakSet();
+const nodeOutputDestinations = new WeakMap();
 
 let isConnectPatched = false;
 let originalAudioConnect = null;
@@ -23,12 +24,30 @@ function getMuteButtons() {
   return Array.from(document.querySelectorAll(".spectral-panel .mute-button"));
 }
 
-function isLikelyMainToneFilter(destinationNode) {
+function rememberConnection(sourceNode, destinationNode) {
+  if (!sourceNode || !destinationNode) {
+    return;
+  }
+
+  const destinations = nodeOutputDestinations.get(sourceNode) ?? new Set();
+  destinations.add(destinationNode);
+  nodeOutputDestinations.set(sourceNode, destinations);
+}
+
+function getRememberedDestinations(sourceNode) {
+  return Array.from(nodeOutputDestinations.get(sourceNode) ?? []);
+}
+
+function isLowpassFilter(node) {
   return (
     typeof BiquadFilterNode !== "undefined" &&
-    destinationNode instanceof BiquadFilterNode &&
-    destinationNode.type === "lowpass"
+    node instanceof BiquadFilterNode &&
+    node.type === "lowpass"
   );
+}
+
+function isLikelyMainToneFilter(destinationNode) {
+  return isLowpassFilter(destinationNode);
 }
 
 function isLikelySourceGain(sourceNode) {
@@ -59,6 +78,48 @@ function getBandTargetGain(bandIndex) {
   return faderAmount * MAX_BAND_GAIN;
 }
 
+function findPostToneLowpass(startNode) {
+  const visitedNodes = new WeakSet();
+  const queue = getRememberedDestinations(startNode).map((node) => ({ node, depth: 0 }));
+
+  while (queue.length > 0) {
+    const { node, depth } = queue.shift();
+
+    if (!node || visitedNodes.has(node) || depth > MAX_GRAPH_SEARCH_DEPTH) {
+      continue;
+    }
+
+    visitedNodes.add(node);
+
+    if (node !== startNode && isLowpassFilter(node)) {
+      return node;
+    }
+
+    getRememberedDestinations(node).forEach((nextNode) => {
+      queue.push({ node: nextNode, depth: depth + 1 });
+    });
+  }
+
+  return null;
+}
+
+function getSpectralOutputDestinations(toneFilterNode) {
+  const postToneLowpass = findPostToneLowpass(toneFilterNode);
+  const postToneDestinations = postToneLowpass ? getRememberedDestinations(postToneLowpass) : [];
+
+  if (postToneDestinations.length > 0) {
+    return postToneDestinations;
+  }
+
+  const toneDestinations = getRememberedDestinations(toneFilterNode);
+
+  if (toneDestinations.length > 0) {
+    return toneDestinations;
+  }
+
+  return [toneFilterNode];
+}
+
 function createSpectralBank(sourceNode, destinationNode) {
   if (!originalAudioConnect || patchedSources.has(sourceNode)) {
     return;
@@ -67,13 +128,7 @@ function createSpectralBank(sourceNode, destinationNode) {
   patchedSources.add(sourceNode);
 
   const context = sourceNode.context;
-  const dryGain = context.createGain();
-
-  dryGain.gain.setValueAtTime(SPECTRAL_DRY_GAIN, context.currentTime);
-
-  originalAudioConnect.call(sourceNode, dryGain);
-  originalAudioConnect.call(dryGain, destinationNode);
-
+  const outputDestinations = getSpectralOutputDestinations(destinationNode);
   const bandGains = SPECTRAL_BAND_FREQUENCIES.map((frequency, bandIndex) => {
     const bandFilter = context.createBiquadFilter();
     const bandGain = context.createGain();
@@ -85,12 +140,15 @@ function createSpectralBank(sourceNode, destinationNode) {
 
     originalAudioConnect.call(sourceNode, bandFilter);
     originalAudioConnect.call(bandFilter, bandGain);
-    originalAudioConnect.call(bandGain, destinationNode);
+
+    outputDestinations.forEach((outputDestination) => {
+      originalAudioConnect.call(bandGain, outputDestination);
+    });
 
     return bandGain;
   });
 
-  trackedSpectralBanks.add({ context, bandGains, dryGain });
+  trackedSpectralBanks.add({ context, bandGains });
   updateSpectralPanelWording();
 }
 
@@ -119,7 +177,13 @@ function patchAudioConnect() {
       return destinationNode;
     }
 
-    return originalAudioConnect.call(this, destinationNode, ...args);
+    const result = originalAudioConnect.call(this, destinationNode, ...args);
+
+    if (args.length === 0) {
+      rememberConnection(this, destinationNode);
+    }
+
+    return result;
   };
 
   isConnectPatched = true;
@@ -132,7 +196,7 @@ function updateSpectralPanelWording() {
     return;
   }
 
-  spectralPanelNote.textContent = "Faders now shape an audible spectral source layer. Mute/Unmute removes or restores each band contribution.";
+  spectralPanelNote.textContent = "Faders shape the audible spectral bands. All bands muted should silence the Spectral Engine contribution.";
 }
 
 function updatePatchSummaryWording() {
@@ -143,7 +207,7 @@ function updatePatchSummaryWording() {
   }
 
   patchSummaryText.textContent = patchSummaryText.textContent
-    .replaceAll("Faders and Mute buttons remain visual-only and do not affect sound.", "Faders and Mute/Unmute now shape an audible spectral source layer.")
+    .replaceAll("Faders and Mute buttons remain visual-only and do not affect sound.", "Faders and Mute/Unmute now shape audible spectral bands.")
     .replaceAll("band-fader audio behaviour, ", "")
     .replaceAll("No audible Band 5 filtering, all-10-band filter bank", "No full all-10-band filter bank");
 }
