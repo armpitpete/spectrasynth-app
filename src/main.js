@@ -19,9 +19,10 @@ const STEREO_LEFT_DELAY_SECONDS = 0.004;
 const STEREO_RIGHT_DELAY_SECONDS = 0.009;
 const STEREO_CENTER_GAIN = 0.62;
 const STEREO_SPREAD_GAIN = 0.42;
-const SILENT_BAND_5_INDEX = 4;
-const SILENT_BAND_5_FREQUENCY = 1200;
-const SILENT_BAND_5_Q = 1.2;
+const SPECTRAL_BAND_5_INDEX = 4;
+const SPECTRAL_BAND_5_FREQUENCY = 1200;
+const SPECTRAL_BAND_5_Q = 1.2;
+const SPECTRAL_BAND_5_MAX_GAIN = 0.1;
 const EXTREME_NOISE_RESONANCE_START = 30;
 const EXTREME_NOISE_RESONANCE_TARGET = 24;
 const EXTREME_NOISE_FUZZ_START = 0.85;
@@ -46,7 +47,7 @@ const spectralBandState = bands.map((band) => ({
   faderValue: band.height,
   isMuted: false,
   analyserLevel: 0,
-  hasSilentFilterTap: band.number === 5,
+  hasAudibleTestBand: band.number === 5,
 }));
 
 let lastTouchedBandIndex = null;
@@ -60,8 +61,8 @@ let butteryFuzzDryGain = null;
 let butteryFuzzWetGain = null;
 let butteryFuzzMixGain = null;
 let postFuzzFilter = null;
-let silentBand5Filter = null;
-let silentBand5Gain = null;
+let spectralBand5Filter = null;
+let spectralBand5Gain = null;
 let stereoCenterGain = null;
 let stereoLeftDelay = null;
 let stereoLeftPanner = null;
@@ -165,7 +166,7 @@ document.querySelector("#app").innerHTML = `
     <section class="panel spectral-panel">
       <div class="section-heading">
         <h2>Spectral Engine</h2>
-        <p>Audio is paused while the proper filter-bank engine is planned. Faders and Mute buttons remain UI-only.</p>
+        <p>Band 5 Voice is the only audible test band. Other faders and Mute buttons remain UI-only.</p>
       </div>
 
       <div class="band-bank">
@@ -195,7 +196,7 @@ document.querySelector("#app").innerHTML = `
 
     <section class="panel patch-summary">
       <h2>Plain Patch Summary</h2>
-      <p id="patchSummaryText">Stable source readout layout checkpoint. No sound engine running. Press Start Oscillator or Start Noise to test one quiet source. Output is clamped to a safe maximum. Spectral Engine audio is paused and the faders remain UI-only.</p>
+      <p id="patchSummaryText">Stable source readout layout checkpoint. No sound engine running. Press Start Oscillator or Start Noise to test one quiet source. Output is clamped to a safe maximum. Band 5 is the only audible Spectral Engine test band.</p>
     </section>
   </main>
 `;
@@ -267,6 +268,11 @@ bandFaders.forEach((fader) => {
 
     spectralBandState[bandIndex].faderValue = Number(fader.value);
     lastTouchedBandIndex = bandIndex;
+
+    if (bandIndex === SPECTRAL_BAND_5_INDEX) {
+      updateSpectralBand5GainFromState();
+    }
+
     updatePatchSummary();
   });
 });
@@ -279,6 +285,11 @@ muteButtons.forEach((button) => {
     bandState.isMuted = !bandState.isMuted;
     lastTouchedBandIndex = bandIndex;
     updateMuteButtonFromState(button, bandState);
+
+    if (bandIndex === SPECTRAL_BAND_5_INDEX) {
+      updateSpectralBand5GainFromState();
+    }
+
     updatePatchSummary();
   });
 });
@@ -315,8 +326,8 @@ async function ensureAudioContext() {
     butteryFuzzWetGain = audioContext.createGain();
     butteryFuzzMixGain = audioContext.createGain();
     postFuzzFilter = audioContext.createBiquadFilter();
-    silentBand5Filter = audioContext.createBiquadFilter();
-    silentBand5Gain = audioContext.createGain();
+    spectralBand5Filter = audioContext.createBiquadFilter();
+    spectralBand5Gain = audioContext.createGain();
     stereoCenterGain = audioContext.createGain();
     stereoLeftDelay = audioContext.createDelay(0.02);
     stereoLeftPanner = audioContext.createStereoPanner();
@@ -333,10 +344,10 @@ async function ensureAudioContext() {
     butteryFuzzMixGain.gain.setValueAtTime(1, audioContext.currentTime);
     postFuzzFilter.type = "lowpass";
     postFuzzFilter.Q.setValueAtTime(POST_FUZZ_FILTER_Q, audioContext.currentTime);
-    silentBand5Filter.type = "bandpass";
-    silentBand5Filter.frequency.setValueAtTime(SILENT_BAND_5_FREQUENCY, audioContext.currentTime);
-    silentBand5Filter.Q.setValueAtTime(SILENT_BAND_5_Q, audioContext.currentTime);
-    silentBand5Gain.gain.setValueAtTime(0, audioContext.currentTime);
+    spectralBand5Filter.type = "bandpass";
+    spectralBand5Filter.frequency.setValueAtTime(SPECTRAL_BAND_5_FREQUENCY, audioContext.currentTime);
+    spectralBand5Filter.Q.setValueAtTime(SPECTRAL_BAND_5_Q, audioContext.currentTime);
+    spectralBand5Gain.gain.setValueAtTime(getSpectralBand5TargetGain(), audioContext.currentTime);
     stereoCenterGain.gain.setValueAtTime(STEREO_CENTER_GAIN, audioContext.currentTime);
     stereoLeftDelay.delayTime.setValueAtTime(STEREO_LEFT_DELAY_SECONDS, audioContext.currentTime);
     stereoLeftPanner.pan.setValueAtTime(-0.85, audioContext.currentTime);
@@ -346,6 +357,7 @@ async function ensureAudioContext() {
     stereoRightGain.gain.setValueAtTime(STEREO_SPREAD_GAIN, audioContext.currentTime);
 
     sourceMixGain.connect(toneFilter);
+    sourceMixGain.connect(spectralBand5Filter);
     toneFilter.connect(butteryFuzzDryGain);
     toneFilter.connect(butteryFuzzInputGain);
     butteryFuzzInputGain.connect(butteryFuzz);
@@ -354,11 +366,13 @@ async function ensureAudioContext() {
     butteryFuzzDryGain.connect(butteryFuzzMixGain);
     butteryFuzzWetGain.connect(butteryFuzzMixGain);
     butteryFuzzMixGain.connect(postFuzzFilter);
-    postFuzzFilter.connect(silentBand5Filter);
-    silentBand5Filter.connect(silentBand5Gain);
+    spectralBand5Filter.connect(spectralBand5Gain);
     postFuzzFilter.connect(stereoCenterGain);
     postFuzzFilter.connect(stereoLeftDelay);
     postFuzzFilter.connect(stereoRightDelay);
+    spectralBand5Gain.connect(stereoCenterGain);
+    spectralBand5Gain.connect(stereoLeftDelay);
+    spectralBand5Gain.connect(stereoRightDelay);
     stereoCenterGain.connect(masterGain);
     stereoLeftDelay.connect(stereoLeftPanner);
     stereoLeftPanner.connect(stereoLeftGain);
@@ -418,6 +432,24 @@ function getEffectiveResonanceAmount(resonanceAmount, safetyAmount) {
 function getEffectiveFuzzInputGain(fuzzInputGain, safetyAmount) {
   const fuzzDriveReduction = Math.max(0, fuzzInputGain - EXTREME_NOISE_FUZZ_TARGET_GAIN) * safetyAmount;
   return fuzzInputGain - fuzzDriveReduction;
+}
+
+function getSpectralBand5TargetGain() {
+  const bandState = spectralBandState[SPECTRAL_BAND_5_INDEX];
+
+  if (!bandState || bandState.isMuted) {
+    return 0;
+  }
+
+  return (bandState.faderValue / 100) * SPECTRAL_BAND_5_MAX_GAIN;
+}
+
+function updateSpectralBand5GainFromState() {
+  if (!spectralBand5Gain || !audioContext) {
+    return;
+  }
+
+  spectralBand5Gain.gain.setTargetAtTime(getSpectralBand5TargetGain(), audioContext.currentTime, 0.015);
 }
 
 function updateToneFilterFromControls() {
@@ -765,14 +797,17 @@ function getExtremeNoiseSafetySummaryText() {
   return `Extreme noise safety shaping is active because Noise, high Resonance, and high Buttery Fuzz are combined. Effective resonance is ${effectiveResonanceAmount.toFixed(1)} instead of ${resonanceAmount.toFixed(1)}, and effective fuzz drive is ${effectiveFuzzInputGain.toFixed(2)}x instead of ${rawFuzzInputGain.toFixed(2)}x.`;
 }
 
-function getSilentBand5TapSummaryText() {
-  const bandState = spectralBandState[SILENT_BAND_5_INDEX];
+function getSpectralBand5SummaryText() {
+  const bandState = spectralBandState[SPECTRAL_BAND_5_INDEX];
 
-  if (!bandState?.hasSilentFilterTap) {
-    return "No silent spectral filter tap is active.";
+  if (!bandState?.hasAudibleTestBand) {
+    return "No audible spectral test band is active.";
   }
 
-  return `The tested silent Band 5 tap is frozen. Band 5 ${bandState.label} has a real silent bandpass filter tap at ${SILENT_BAND_5_FREQUENCY} Hz with Q ${SILENT_BAND_5_Q}. It is routed only to an internal zero-gain path and does not affect sound.`;
+  const gainPercent = Math.round((getSpectralBand5TargetGain() / SPECTRAL_BAND_5_MAX_GAIN) * 100);
+  const stateText = bandState.isMuted ? "muted" : `${gainPercent}% of its safe test level`;
+
+  return `Band 5 ${bandState.label} is the only audible Spectral Engine test band. It is a 1200 Hz bandpass branch from sourceMixGain with Q ${SPECTRAL_BAND_5_Q}, reinserting into the existing stereo/output path after the core filter/fuzz path. It is currently ${stateText}.`;
 }
 
 function getSpectralBandSummaryText() {
@@ -784,7 +819,7 @@ function getSpectralBandSummaryText() {
     ? "No spectral fader or Mute button has been moved yet."
     : `Last touched band: ${spectralBandState[lastTouchedBandIndex].label} at ${spectralBandState[lastTouchedBandIndex].faderValue}% visual value, analyser level ${spectralBandState[lastTouchedBandIndex].analyserLevel}%.`;
 
-  return `The 10 spectral bands store fader value, muted state, analyser level, and stable Band 5 silent filter-tap state. Faders and Mute buttons remain visual-only and do not affect sound. ${getSilentBand5TapSummaryText()} ${mutedSummary} ${lastTouchedSummary}`;
+  return `The 10 spectral bands store fader value, muted state, analyser level, and Band 5 audible test-band state. Only Band 5 affects sound. Bands 1–4 and 6–10 remain UI-only. ${getSpectralBand5SummaryText()} ${mutedSummary} ${lastTouchedSummary}`;
 }
 
 function updatePatchSummary() {
@@ -796,10 +831,10 @@ function updatePatchSummary() {
   const fuzzSummary = getFuzzSummaryText();
   const safetyShapeText = getExtremeNoiseSafetySummaryText();
   const spectralStateText = getSpectralBandSummaryText();
-  const checkpointText = "The explicit source mix bus is active for future Spectral Engine work. Spectral Engine audio remains paused/UI-only.";
+  const checkpointText = "The explicit source mix bus is active, and Band 5 is the only safe audible Spectral Engine test band.";
   const safetyText = `Output is clamped to a safe maximum gain of ${MAX_SAFE_MASTER_GAIN}.`;
   const cutoffText = `Cutoff / Brightness uses a perceptual slider curve from ${CUTOFF_MIN_FREQUENCY} Hz to ${CUTOFF_MAX_FREQUENCY} Hz and is currently mapped to ${cutoffFrequency} Hz.`;
-  const notYetText = "No active all-10-band filter bank, feedback loop, vocoder, microphone, sensors, band-fader audio behaviour, or fake self-oscillation is connected yet.";
+  const notYetText = "No active full ten-band filter bank, feedback loop, vocoder, microphone, sensors, all-band fader audio behaviour, or fake self-oscillation is connected yet.";
 
   if (wasPanicStopped && !isOscillatorRunning && !isNoiseRunning) {
     patchSummaryText.textContent =
@@ -809,19 +844,19 @@ function updatePatchSummary() {
 
   if (isOscillatorRunning && isNoiseRunning) {
     patchSummaryText.textContent =
-      `One quiet sawtooth oscillator and one quiet white noise source are running through sourceMixGain, then through one pre-fuzz low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the Buttery Fuzz stage, then through a post-fuzz low-pass filter that follows Cutoff, then through the unchanged master Output path set to ${outputPercent}%. ${checkpointText} ${fuzzSummary} ${safetyShapeText} ${safetyText} ${cutoffText} ${spectralStateText} ${notYetText}`;
+      `One quiet sawtooth oscillator and one quiet white noise source are running through sourceMixGain, then through one pre-fuzz low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the Buttery Fuzz stage, then through a post-fuzz low-pass filter that follows Cutoff, then through the unchanged master Output path set to ${outputPercent}%. Band 5 also receives a safe parallel 1200 Hz bandpass test branch. ${checkpointText} ${fuzzSummary} ${safetyShapeText} ${safetyText} ${cutoffText} ${spectralStateText} ${notYetText}`;
     return;
   }
 
   if (isOscillatorRunning) {
     patchSummaryText.textContent =
-      `One quiet sawtooth oscillator is running at A3 through sourceMixGain, then through one pre-fuzz low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the Buttery Fuzz stage, then through a post-fuzz low-pass filter that follows Cutoff, then through the unchanged master Output path set to ${outputPercent}%. ${checkpointText} ${fuzzSummary} ${safetyShapeText} ${safetyText} ${cutoffText} ${spectralStateText} ${notYetText}`;
+      `One quiet sawtooth oscillator is running at A3 through sourceMixGain, then through one pre-fuzz low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the Buttery Fuzz stage, then through a post-fuzz low-pass filter that follows Cutoff, then through the unchanged master Output path set to ${outputPercent}%. Band 5 also receives a safe parallel 1200 Hz bandpass test branch. ${checkpointText} ${fuzzSummary} ${safetyShapeText} ${safetyText} ${cutoffText} ${spectralStateText} ${notYetText}`;
     return;
   }
 
   if (isNoiseRunning) {
     patchSummaryText.textContent =
-      `One quiet white noise source is running through sourceMixGain, then through one pre-fuzz low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the Buttery Fuzz stage, then through a post-fuzz low-pass filter that follows Cutoff, then through the unchanged master Output path set to ${outputPercent}%. ${checkpointText} ${fuzzSummary} ${safetyShapeText} ${safetyText} ${cutoffText} ${spectralStateText} ${notYetText}`;
+      `One quiet white noise source is running through sourceMixGain, then through one pre-fuzz low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the Buttery Fuzz stage, then through a post-fuzz low-pass filter that follows Cutoff, then through the unchanged master Output path set to ${outputPercent}%. Band 5 also receives a safe parallel 1200 Hz bandpass test branch. ${checkpointText} ${fuzzSummary} ${safetyShapeText} ${safetyText} ${cutoffText} ${spectralStateText} ${notYetText}`;
     return;
   }
 
