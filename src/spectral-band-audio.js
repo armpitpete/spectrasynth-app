@@ -1,7 +1,12 @@
 const BAND_5_INDEX = 4;
-const SPECTRAL_AUDIO_STATUS = "Band 5 Voice now uses the source-fed audition branch. No fixed proof tone is generated. Bands 1–4 and 6–10 remain UI-only.";
+const BAND_5_BROAD_FREQUENCY = 1200;
+const BAND_5_BROAD_Q = 0.55;
+const BAND_5_BROAD_PEAK_GAIN_DB = 5;
+const SPECTRAL_AUDIO_STATUS = "Band 5 Voice uses a broad source-colour audition, not a narrow fixed-pitch bandpass. Bands 1–4 and 6–10 remain UI-only.";
 
 let band5Readout = null;
+let isBand5BroadeningInstalled = false;
+const broadenedBand5Filters = new WeakSet();
 
 function getBandFaders() {
   return Array.from(document.querySelectorAll(".spectral-panel .band-fader"));
@@ -27,6 +32,46 @@ function isBand5Muted() {
 function getBand5FaderAmount() {
   const fader = getBand5Fader();
   return Math.min(1, Math.max(0, Number(fader?.value ?? 0) / 100));
+}
+
+function isBand5AuditionFilter(filterNode) {
+  return (
+    filterNode?.type === "bandpass" &&
+    Math.abs(filterNode.frequency.value - BAND_5_BROAD_FREQUENCY) < 1 &&
+    Math.abs(filterNode.Q.value - 1.2) < 0.05
+  );
+}
+
+function broadenBand5FilterIfNeeded(filterNode) {
+  if (!filterNode || broadenedBand5Filters.has(filterNode) || !isBand5AuditionFilter(filterNode)) {
+    return;
+  }
+
+  broadenedBand5Filters.add(filterNode);
+  filterNode.type = "peaking";
+  filterNode.frequency.setValueAtTime(BAND_5_BROAD_FREQUENCY, filterNode.context.currentTime);
+  filterNode.Q.setValueAtTime(BAND_5_BROAD_Q, filterNode.context.currentTime);
+  filterNode.gain.setValueAtTime(BAND_5_BROAD_PEAK_GAIN_DB, filterNode.context.currentTime);
+}
+
+function installBand5BroadeningGuard() {
+  if (isBand5BroadeningInstalled || typeof AudioContext === "undefined") {
+    return;
+  }
+
+  const originalCreateBiquadFilter = AudioContext.prototype.createBiquadFilter;
+
+  AudioContext.prototype.createBiquadFilter = function createBiquadFilterWithBand5Broadening(...args) {
+    const filterNode = originalCreateBiquadFilter.apply(this, args);
+
+    window.setTimeout(() => {
+      broadenBand5FilterIfNeeded(filterNode);
+    }, 0);
+
+    return filterNode;
+  };
+
+  isBand5BroadeningInstalled = true;
 }
 
 function ensureBand5Readout() {
@@ -59,7 +104,7 @@ function updateBand5Readout() {
   const faderPercent = Math.round(getBand5FaderAmount() * 100);
   const muted = isBand5Muted();
 
-  readout.textContent = `Band 5 source-fed branch: ${muted ? "muted" : "active"}; fader ${faderPercent}%; fixed proof tone removed.`;
+  readout.textContent = `Band 5 broad colour branch: ${muted ? "muted" : "active"}; fader ${faderPercent}%; peaking colour ${BAND_5_BROAD_PEAK_GAIN_DB} dB at ${BAND_5_BROAD_FREQUENCY} Hz, Q ${BAND_5_BROAD_Q}.`;
 }
 
 function updateSpectralPanelWording() {
@@ -80,9 +125,10 @@ function updatePatchSummaryWording() {
   }
 
   patchSummaryText.textContent = patchSummaryText.textContent
-    .replaceAll("Band 5 has a temporary audible proof tone for control testing.", "Band 5 uses the source-fed audition branch; the fixed proof tone has been removed.")
+    .replaceAll("Band 5 has a temporary audible proof tone for control testing.", "Band 5 uses a broad source-colour audition; the fixed proof tone has been removed.")
     .replaceAll("Band 5 Voice has a temporary audible proof tone. Bands 1–4 and 6–10 remain UI-only.", SPECTRAL_AUDIO_STATUS)
-    .replaceAll("Only Band 5 fader and Mute/Unmute control the temporary audible proof tone.", "Only Band 5 fader and Mute/Unmute control the source-fed audition branch.")
+    .replaceAll("Band 5 Voice now uses the source-fed audition branch. No fixed proof tone is generated. Bands 1–4 and 6–10 remain UI-only.", SPECTRAL_AUDIO_STATUS)
+    .replaceAll("Only Band 5 fader and Mute/Unmute control the temporary audible proof tone.", "Only Band 5 fader and Mute/Unmute control the broad source-colour audition branch.")
     .replaceAll("No active all-10-band filter bank", "No active full ten-band filter bank");
 }
 
@@ -90,6 +136,7 @@ function initialiseBand5SourceFedStatus() {
   const band5Fader = getBand5Fader();
   const band5MuteButton = getBand5MuteButton();
 
+  installBand5BroadeningGuard();
   updateSpectralPanelWording();
   updatePatchSummaryWording();
   updateBand5Readout();
