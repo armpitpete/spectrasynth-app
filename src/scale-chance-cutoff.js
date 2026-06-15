@@ -296,6 +296,16 @@ function chooseNextMidiNote() {
   return getWeightedRandomNote(getAllowedMidiNotes());
 }
 
+function dispatchScaleChanceNoteEvent(noteLength) {
+  document.dispatchEvent(new CustomEvent("spectraSynthScaleChanceNote", {
+    detail: {
+      noteLengthMs: noteLength,
+      target: lastChosenLabel,
+      cutoffValue: previousCutoffValue,
+    },
+  }));
+}
+
 function applyCutoffTargetForMidiNote(midiNote) {
   const cutoffSlider = getControl("cutoffSlider");
 
@@ -360,6 +370,7 @@ function runScaleChanceCycle() {
     appendScaleChanceEngineSummary("This cycle rested, so Cutoff did not move.");
   } else {
     applyCutoffTargetForMidiNote(midiNote);
+    dispatchScaleChanceNoteEvent(noteLength);
     appendScaleChanceEngineSummary(`Cutoff slider moved to ${previousCutoffValue.toFixed(1)}.`);
   }
 
