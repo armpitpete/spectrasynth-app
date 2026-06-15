@@ -10,7 +10,7 @@ const SCALES = [
   "Chromatic",
 ];
 const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
-const NOTE_RANGE = Array.from({ length: 6 }, (_, octaveIndex) =>
+const NOTE_RANGE = Array.from({ length: 9 }, (_, octaveIndex) =>
   NOTE_NAMES.map((noteName) => `${noteName}${octaveIndex + 1}`)
 ).flat();
 const ARP_NOTE_DEFAULTS = ["C2", "E2", "G2", "C3", "E3", "G3", "C4", "E4", "G4", "C5", "E5", "G5"];
