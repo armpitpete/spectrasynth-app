@@ -14,10 +14,24 @@ const NOTE_RANGE = Array.from({ length: 6 }, (_, octaveIndex) =>
   NOTE_NAMES.map((noteName) => `${noteName}${octaveIndex + 1}`)
 ).flat();
 const ARP_NOTE_DEFAULTS = ["C2", "E2", "G2", "C3", "E3", "G3", "C4", "E4", "G4", "C5", "E5", "G5"];
+const ARP_DIRECTIONS = [
+  ["as-selected", "As Selected"],
+  ["up", "Up"],
+  ["down", "Down"],
+  ["up-down", "Up / Down"],
+  ["down-up", "Down / Up"],
+  ["random", "Random"],
+];
 
 function getOptionMarkup(options, selectedOption) {
   return options
     .map((option) => `<option value="${option}"${option === selectedOption ? " selected" : ""}>${option}</option>`)
+    .join("");
+}
+
+function getValueLabelOptionMarkup(options, selectedOption) {
+  return options
+    .map(([value, label]) => `<option value="${value}"${value === selectedOption ? " selected" : ""}>${label}</option>`)
     .join("");
 }
 
@@ -112,6 +126,12 @@ function injectScaleChancePanel() {
       </select>
     </label>
     <label>
+      Arp Direction
+      <select id="scaleChanceArpDirection">
+        ${getValueLabelOptionMarkup(ARP_DIRECTIONS, "as-selected")}
+      </select>
+    </label>
+    <label>
       Arp Notes
       <input id="scaleChanceArpNoteCount" type="range" min="2" max="12" step="1" value="4" />
     </label>
@@ -119,6 +139,13 @@ function injectScaleChancePanel() {
   `;
 
   controlGrid.appendChild(scaleChancePanel);
+}
+
+function getArpDirectionLabel() {
+  const arpDirection = document.querySelector("#scaleChanceArpDirection")?.value ?? "as-selected";
+  const matchedDirection = ARP_DIRECTIONS.find(([value]) => value === arpDirection);
+
+  return matchedDirection?.[1] ?? "As Selected";
 }
 
 function getArpSummaryText() {
@@ -134,7 +161,7 @@ function getArpSummaryText() {
     document.querySelector(`#scaleChanceArpNote${noteIndex + 1}`)?.value ?? "C2"
   );
 
-  return ` Arp mode ${arpMode.value}, ${noteCount} notes: ${notes.join(" → ")}.`;
+  return ` Arp mode ${arpMode.value}, direction ${getArpDirectionLabel()}, ${noteCount} notes: ${notes.join(" → ")}.`;
 }
 
 function appendScaleChanceSummary() {
