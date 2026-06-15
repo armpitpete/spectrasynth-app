@@ -1,8 +1,8 @@
 const BAND_5_INDEX = 4;
 const BAND_5_BROAD_FREQUENCY = 1200;
-const BAND_5_BROAD_Q = 0.55;
-const BAND_5_BROAD_PEAK_GAIN_DB = 5;
-const SPECTRAL_AUDIO_STATUS = "Band 5 Voice uses a broad source-colour audition, not a narrow fixed-pitch bandpass. Bands 1–4 and 6–10 remain UI-only.";
+const BAND_5_BROAD_Q = 0.65;
+const BAND_5_BROAD_PEAK_GAIN_DB = 10;
+const SPECTRAL_AUDIO_STATUS = "Band 5 Voice uses a stronger broad source-colour audition. Bands 1–4 and 6–10 remain UI-only.";
 
 let band5Readout = null;
 let isBand5BroadeningInstalled = false;
@@ -125,10 +125,11 @@ function updatePatchSummaryWording() {
   }
 
   patchSummaryText.textContent = patchSummaryText.textContent
-    .replaceAll("Band 5 has a temporary audible proof tone for control testing.", "Band 5 uses a broad source-colour audition; the fixed proof tone has been removed.")
+    .replaceAll("Band 5 has a temporary audible proof tone for control testing.", "Band 5 uses a stronger broad source-colour audition; the fixed proof tone has been removed.")
     .replaceAll("Band 5 Voice has a temporary audible proof tone. Bands 1–4 and 6–10 remain UI-only.", SPECTRAL_AUDIO_STATUS)
     .replaceAll("Band 5 Voice now uses the source-fed audition branch. No fixed proof tone is generated. Bands 1–4 and 6–10 remain UI-only.", SPECTRAL_AUDIO_STATUS)
-    .replaceAll("Only Band 5 fader and Mute/Unmute control the temporary audible proof tone.", "Only Band 5 fader and Mute/Unmute control the broad source-colour audition branch.")
+    .replaceAll("Band 5 Voice uses a broad source-colour audition, not a narrow fixed-pitch bandpass. Bands 1–4 and 6–10 remain UI-only.", SPECTRAL_AUDIO_STATUS)
+    .replaceAll("Only Band 5 fader and Mute/Unmute control the temporary audible proof tone.", "Only Band 5 fader and Mute/Unmute control the stronger broad source-colour audition branch.")
     .replaceAll("No active all-10-band filter bank", "No active full ten-band filter bank");
 }
 
