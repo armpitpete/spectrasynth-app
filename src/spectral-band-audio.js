@@ -1,6 +1,7 @@
 const SPECTRAL_BAND_FREQUENCIES = [80, 160, 320, 640, 1200, 2200, 3800, 6200, 9000, 12500];
 const SPECTRAL_BAND_Q = [0.8, 0.9, 1.0, 1.05, 1.15, 1.2, 1.25, 1.25, 1.15, 1.0];
-const MAX_BAND_GAIN = 0.075;
+const SPECTRAL_DRY_GAIN = 0.5;
+const MAX_BAND_GAIN = 0.16;
 const GAIN_RAMP_SECONDS = 0.02;
 
 const trackedSpectralBanks = new Set();
@@ -51,7 +52,16 @@ function getBandTargetGain(bandIndex) {
     return 0;
   }
 
-  return Math.pow(faderAmount, 1.45) * MAX_BAND_GAIN;
+  return Math.pow(faderAmount, 1.15) * MAX_BAND_GAIN;
+}
+
+function disconnectDirectSourcePath(sourceNode, destinationNode) {
+  try {
+    sourceNode.disconnect(destinationNode);
+  } catch {
+    // If the browser cannot disconnect this exact connection, leave the dry path intact.
+    // The spectral layer will still be added, but the fader effect may be less strong.
+  }
 }
 
 function createSpectralBank(sourceNode, destinationNode) {
@@ -62,6 +72,14 @@ function createSpectralBank(sourceNode, destinationNode) {
   patchedSources.add(sourceNode);
 
   const context = sourceNode.context;
+  const dryGain = context.createGain();
+
+  dryGain.gain.setValueAtTime(SPECTRAL_DRY_GAIN, context.currentTime);
+
+  disconnectDirectSourcePath(sourceNode, destinationNode);
+  originalAudioConnect.call(sourceNode, dryGain);
+  originalAudioConnect.call(dryGain, destinationNode);
+
   const bandGains = SPECTRAL_BAND_FREQUENCIES.map((frequency, bandIndex) => {
     const bandFilter = context.createBiquadFilter();
     const bandGain = context.createGain();
@@ -78,7 +96,7 @@ function createSpectralBank(sourceNode, destinationNode) {
     return bandGain;
   });
 
-  trackedSpectralBanks.add({ context, bandGains });
+  trackedSpectralBanks.add({ context, bandGains, dryGain });
   updateSpectralPanelWording();
 }
 
@@ -121,7 +139,7 @@ function updateSpectralPanelWording() {
     return;
   }
 
-  spectralPanelNote.textContent = "Faders now add a gentle audible parallel spectral colour layer. Mute/Unmute removes or restores each band contribution.";
+  spectralPanelNote.textContent = "Faders now shape an audible spectral source layer. Mute/Unmute removes or restores each band contribution.";
 }
 
 function updatePatchSummaryWording() {
@@ -132,7 +150,7 @@ function updatePatchSummaryWording() {
   }
 
   patchSummaryText.textContent = patchSummaryText.textContent
-    .replaceAll("Faders and Mute buttons remain visual-only and do not affect sound.", "Faders and Mute/Unmute now add or remove a gentle audible parallel spectral colour layer.")
+    .replaceAll("Faders and Mute buttons remain visual-only and do not affect sound.", "Faders and Mute/Unmute now shape an audible spectral source layer.")
     .replaceAll("band-fader audio behaviour, ", "")
     .replaceAll("No audible Band 5 filtering, all-10-band filter bank", "No full all-10-band filter bank");
 }
