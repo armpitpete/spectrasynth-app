@@ -145,7 +145,7 @@ function injectScaleChancePanel() {
       <input id="scaleChancePitchCentre" type="range" min="0" max="100" value="50" />
     </label>
     <label>
-      Note Length
+      Gate Length
       <input id="scaleChanceNoteLength" type="range" min="50" max="1000" step="10" value="250" />
     </label>
     <label>
@@ -161,7 +161,7 @@ function injectScaleChancePanel() {
       <input id="scaleChanceRepeatChance" type="range" min="0" max="100" value="20" />
     </label>
     <h3>AR Envelope</h3>
-    <p class="panel-note">Triggered by Scale Chance note events. It shapes source level before effects; rests do not trigger it.</p>
+    <p class="panel-note">Attack opens the event, Gate Length holds it, Release falls after the gate closes, and Note Gap waits before the next event.</p>
     <label>
       AR Envelope
       <select id="scaleChanceArEnvelopeEnabled">
@@ -325,7 +325,7 @@ function getArEnvelopeSummaryText() {
     return "";
   }
 
-  return ` AR Envelope ${arEnabled.value}, attack ${attack.value} ms, release ${release.value} ms.`;
+  return ` AR Envelope ${arEnabled.value}: attack ${attack.value} ms opens, Gate Length holds, release ${release.value} ms falls after the gate closes.`;
 }
 
 function getClusterSummaryText() {
@@ -357,18 +357,18 @@ function appendScaleChanceSummary() {
   const highNote = document.querySelector("#scaleChanceHighNote");
   const randomness = document.querySelector("#scaleChanceRandomness");
   const pitchCentre = document.querySelector("#scaleChancePitchCentre");
-  const noteLength = document.querySelector("#scaleChanceNoteLength");
+  const gateLength = document.querySelector("#scaleChanceNoteLength");
   const noteGap = document.querySelector("#scaleChanceNoteGap");
   const restChance = document.querySelector("#scaleChanceRestChance");
   const repeatChance = document.querySelector("#scaleChanceRepeatChance");
 
-  if (!patchSummaryText || !enabled || !root || !scale || !lowNote || !highNote || !randomness || !pitchCentre || !noteLength || !noteGap || !restChance || !repeatChance) {
+  if (!patchSummaryText || !enabled || !root || !scale || !lowNote || !highNote || !randomness || !pitchCentre || !gateLength || !noteGap || !restChance || !repeatChance) {
     return;
   }
 
   const existingSummary = patchSummaryText.textContent.replace(/ Scale Chance.*$/, "");
   const modeText = enabled.value === "on" ? "active" : "off";
-  patchSummaryText.textContent = `${existingSummary} Scale Chance is ${modeText}: ${root.value} ${scale.value}, range ${lowNote.value} to ${highNote.value}, randomness ${randomness.value}%, pitch centre ${pitchCentre.value}%, note length ${noteLength.value} ms, note gap ${noteGap.value} ms, rest chance ${restChance.value}%, repeat chance ${repeatChance.value}%. It controls rhythmic musical Cutoff / Brightness movement only.${getArEnvelopeSummaryText()}${getArpSummaryText()}${getClusterSummaryText()}`;
+  patchSummaryText.textContent = `${existingSummary} Scale Chance is ${modeText}: ${root.value} ${scale.value}, range ${lowNote.value} to ${highNote.value}, randomness ${randomness.value}%, pitch centre ${pitchCentre.value}%, gate length ${gateLength.value} ms, note gap ${noteGap.value} ms, rest chance ${restChance.value}%, repeat chance ${repeatChance.value}%. Gate Length is the held part before release; Attack + Gate Length + Release is the approximate shaped event time.${getArEnvelopeSummaryText()}${getArpSummaryText()}${getClusterSummaryText()}`;
 }
 
 function initialiseScaleChancePanel() {
