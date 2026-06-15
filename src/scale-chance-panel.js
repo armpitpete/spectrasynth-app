@@ -45,6 +45,12 @@ function getOptionMarkup(options, selectedOption) {
     .join("");
 }
 
+function getLabelledNumberOptionMarkup(options, selectedOption, labelPrefix) {
+  return options
+    .map((option) => `<option value="${option}"${option === selectedOption ? " selected" : ""}>${labelPrefix} ${option}</option>`)
+    .join("");
+}
+
 function getValueLabelOptionMarkup(options, selectedOption) {
   return options
     .map(([value, label]) => `<option value="${value}"${value === selectedOption ? " selected" : ""}>${label}</option>`)
@@ -69,12 +75,12 @@ function getArpNoteMarkup() {
 function getClusterNoteMarkup() {
   return CLUSTER_NOTE_DEFAULTS
     .map((clusterNotes, clusterIndex) => `
-      <fieldset class="cluster-fieldset">
+      <fieldset class="cluster-fieldset" data-cluster-index="${clusterIndex + 1}">
         <legend>Cluster ${clusterIndex + 1}</legend>
         ${clusterNotes
           .map((selectedNote, noteIndex) => `
-            <label>
-              Cluster ${clusterIndex + 1} Note ${noteIndex + 1}
+            <label data-cluster-note-index="${noteIndex + 1}">
+              Note ${noteIndex + 1}
               <select id="scaleChanceCluster${clusterIndex + 1}Note${noteIndex + 1}">
                 ${getOptionMarkup(NOTE_RANGE, selectedNote)}
               </select>
@@ -175,7 +181,7 @@ function injectScaleChancePanel() {
     </label>
     ${getArpNoteMarkup()}
     <h3>Arp Clusters</h3>
-    <p class="panel-note">Visual-only cluster controls. They do not change Cutoff movement yet.</p>
+    <p class="panel-note">Cluster controls. Choose one cluster to edit; hidden clusters still play when active.</p>
     <label>
       Cluster Mode
       <select id="scaleChanceClusterMode">
@@ -193,6 +199,12 @@ function injectScaleChancePanel() {
       Cluster Size
       <select id="scaleChanceClusterSize">
         ${getOptionMarkup(CLUSTER_SIZES, "3")}
+      </select>
+    </label>
+    <label>
+      Cluster View
+      <select id="scaleChanceClusterView">
+        ${getLabelledNumberOptionMarkup(CLUSTER_COUNTS, "1", "Cluster")}
       </select>
     </label>
     <label>
@@ -221,6 +233,56 @@ function getClusterDirectionLabel() {
   return matchedDirection?.[1] ?? "As Selected";
 }
 
+function getClusterCount() {
+  return Number(document.querySelector("#scaleChanceClusterCount")?.value ?? 1);
+}
+
+function getClusterSize() {
+  return Number(document.querySelector("#scaleChanceClusterSize")?.value ?? 1);
+}
+
+function getClusterView() {
+  return Number(document.querySelector("#scaleChanceClusterView")?.value ?? 1);
+}
+
+function updateClusterViewOptions() {
+  const clusterView = document.querySelector("#scaleChanceClusterView");
+
+  if (!clusterView) {
+    return;
+  }
+
+  const clusterCount = getClusterCount();
+  const selectedCluster = Math.min(getClusterView(), clusterCount);
+  const visibleClusterOptions = CLUSTER_COUNTS.slice(0, clusterCount);
+  clusterView.innerHTML = getLabelledNumberOptionMarkup(visibleClusterOptions, String(selectedCluster), "Cluster");
+  clusterView.value = String(selectedCluster);
+}
+
+function updateClusterControlVisibility() {
+  updateClusterViewOptions();
+
+  const clusterCount = getClusterCount();
+  const clusterSize = getClusterSize();
+  const clusterView = getClusterView();
+
+  document.querySelectorAll(".cluster-fieldset").forEach((fieldset) => {
+    const clusterIndex = Number(fieldset.dataset.clusterIndex ?? 1);
+    const showCluster = clusterIndex <= clusterCount && clusterIndex === clusterView;
+
+    fieldset.hidden = !showCluster;
+    fieldset.style.display = showCluster ? "" : "none";
+
+    fieldset.querySelectorAll("[data-cluster-note-index]").forEach((noteControl) => {
+      const noteIndex = Number(noteControl.dataset.clusterNoteIndex ?? 1);
+      const showNote = noteIndex <= clusterSize;
+
+      noteControl.hidden = !showNote;
+      noteControl.style.display = showNote ? "" : "none";
+    });
+  });
+}
+
 function getArpSummaryText() {
   const arpMode = document.querySelector("#scaleChanceArpMode");
   const arpNoteCount = document.querySelector("#scaleChanceArpNoteCount");
@@ -241,22 +303,20 @@ function getClusterSummaryText() {
   const clusterMode = document.querySelector("#scaleChanceClusterMode");
   const clusterCount = document.querySelector("#scaleChanceClusterCount");
   const clusterSize = document.querySelector("#scaleChanceClusterSize");
+  const clusterView = document.querySelector("#scaleChanceClusterView");
 
-  if (!clusterMode || !clusterCount || !clusterSize) {
+  if (!clusterMode || !clusterCount || !clusterSize || !clusterView) {
     return "";
   }
 
   const count = Number(clusterCount.value);
   const size = Number(clusterSize.value);
-  const clusterSummaries = Array.from({ length: count }, (_, clusterIndex) => {
-    const notes = Array.from({ length: size }, (_, noteIndex) =>
-      document.querySelector(`#scaleChanceCluster${clusterIndex + 1}Note${noteIndex + 1}`)?.value ?? "C2"
-    );
+  const view = Number(clusterView.value);
+  const notes = Array.from({ length: size }, (_, noteIndex) =>
+    document.querySelector(`#scaleChanceCluster${view}Note${noteIndex + 1}`)?.value ?? "C2"
+  );
 
-    return `Cluster ${clusterIndex + 1}: ${notes.join(" → ")}`;
-  });
-
-  return ` Arp Clusters are visual-only: mode ${clusterMode.value}, ${count} clusters, ${size} notes each, direction ${getClusterDirectionLabel()}. ${clusterSummaries.join(". ")}.`;
+  return ` Arp Clusters: mode ${clusterMode.value}, ${count} clusters, ${size} notes each, direction ${getClusterDirectionLabel()}, editing Cluster ${view}: ${notes.join(" → ")}.`;
 }
 
 function appendScaleChanceSummary() {
@@ -284,12 +344,18 @@ function appendScaleChanceSummary() {
 
 function initialiseScaleChancePanel() {
   injectScaleChancePanel();
+  updateClusterControlVisibility();
 
   const controls = document.querySelectorAll("#scaleChancePanel select, #scaleChancePanel input");
 
   controls.forEach((control) => {
-    control.addEventListener("input", appendScaleChanceSummary);
-    control.addEventListener("change", appendScaleChanceSummary);
+    const handleControlChange = () => {
+      updateClusterControlVisibility();
+      appendScaleChanceSummary();
+    };
+
+    control.addEventListener("input", handleControlChange);
+    control.addEventListener("change", handleControlChange);
   });
 
   appendScaleChanceSummary();
