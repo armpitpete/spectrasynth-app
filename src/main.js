@@ -51,6 +51,7 @@ const spectralBandState = bands.map((band) => ({
 
 let lastTouchedBandIndex = null;
 let audioContext = null;
+let sourceMixGain = null;
 let toneFilter = null;
 let butteryFuzzInputGain = null;
 let butteryFuzz = null;
@@ -164,7 +165,7 @@ document.querySelector("#app").innerHTML = `
     <section class="panel spectral-panel">
       <div class="section-heading">
         <h2>Spectral Engine</h2>
-        <p>Band 5 has a stable silent internal filter tap. Faders and Mute buttons remain visual-only.</p>
+        <p>Audio is paused while the proper filter-bank engine is planned. Faders and Mute buttons remain UI-only.</p>
       </div>
 
       <div class="band-bank">
@@ -194,7 +195,7 @@ document.querySelector("#app").innerHTML = `
 
     <section class="panel patch-summary">
       <h2>Plain Patch Summary</h2>
-      <p id="patchSummaryText">Stable source readout layout checkpoint. No sound engine running. Press Start Oscillator or Start Noise to test one quiet source. Output is set to 70%, clamped to a safe maximum. Cutoff / Brightness uses a perceptual response curve from 120 Hz to 16000 Hz. The current mapped cutoff is about 2625 Hz and shapes both before and after the fuzz stage. Resonance reaches 40 for a strong audible peak, but the stable safety shaper gently reduces effective resonance and fuzz drive only when Noise, high Resonance, and high Buttery Fuzz are combined. Band 5 Voice remains a real silent bandpass filter tap at 1200 Hz with Q 1.2, routed only to an internal zero-gain path. Faders and Mute buttons are still visual-only. PR #43 / Band 5 audition is closed. Feedback is not connected. No fake self-oscillation is connected.</p>
+      <p id="patchSummaryText">Stable source readout layout checkpoint. No sound engine running. Press Start Oscillator or Start Noise to test one quiet source. Output is clamped to a safe maximum. Spectral Engine audio is paused and the faders remain UI-only.</p>
     </section>
   </main>
 `;
@@ -305,9 +306,8 @@ async function ensureAudioContext() {
   }
 
   if (!toneFilter) {
+    sourceMixGain = audioContext.createGain();
     toneFilter = audioContext.createBiquadFilter();
-    toneFilter.type = "lowpass";
-
     butteryFuzzInputGain = audioContext.createGain();
     butteryFuzz = audioContext.createWaveShaper();
     butteryFuzzOutputGain = audioContext.createGain();
@@ -325,6 +325,8 @@ async function ensureAudioContext() {
     stereoRightPanner = audioContext.createStereoPanner();
     stereoRightGain = audioContext.createGain();
 
+    sourceMixGain.gain.setValueAtTime(1, audioContext.currentTime);
+    toneFilter.type = "lowpass";
     butteryFuzz.curve = createButteryFuzzCurve();
     butteryFuzz.oversample = "2x";
     butteryFuzzOutputGain.gain.setValueAtTime(FUZZ_OUTPUT_TRIM, audioContext.currentTime);
@@ -343,6 +345,7 @@ async function ensureAudioContext() {
     stereoRightPanner.pan.setValueAtTime(0.85, audioContext.currentTime);
     stereoRightGain.gain.setValueAtTime(STEREO_SPREAD_GAIN, audioContext.currentTime);
 
+    sourceMixGain.connect(toneFilter);
     toneFilter.connect(butteryFuzzDryGain);
     toneFilter.connect(butteryFuzzInputGain);
     butteryFuzzInputGain.connect(butteryFuzz);
@@ -564,7 +567,7 @@ async function startOscillator() {
   oscillatorGain.gain.linearRampToValueAtTime(0.08, context.currentTime + 0.05);
 
   oscillator.connect(oscillatorGain);
-  oscillatorGain.connect(toneFilter);
+  oscillatorGain.connect(sourceMixGain);
 
   oscillator.start();
 
@@ -589,7 +592,7 @@ function stopOscillator(options = {}) {
   try {
     oscillator.stop(stopTime);
   } catch {
-    // The oscillator may already be stopping. Ignore duplicate stop attempts.
+    // Ignore duplicate stop attempts.
   }
 
   oscillator.onended = () => {
@@ -625,7 +628,7 @@ async function startNoise() {
   noiseGain.gain.linearRampToValueAtTime(0.05, context.currentTime + 0.05);
 
   noiseSource.connect(noiseGain);
-  noiseGain.connect(toneFilter);
+  noiseGain.connect(sourceMixGain);
 
   noiseSource.start();
 
@@ -652,7 +655,7 @@ function stopNoise(options = {}) {
   try {
     noiseSource.stop(stopTime);
   } catch {
-    // The noise source may already be stopping. Ignore duplicate stop attempts.
+    // Ignore duplicate stop attempts.
   }
 
   noiseSource.onended = () => {
@@ -689,7 +692,6 @@ function panicStop() {
   isNoiseRunning = false;
   updateToneFilterFromControls();
   updateButteryFuzzFromSlider();
-
   updatePatchSummary();
 }
 
@@ -794,10 +796,10 @@ function updatePatchSummary() {
   const fuzzSummary = getFuzzSummaryText();
   const safetyShapeText = getExtremeNoiseSafetySummaryText();
   const spectralStateText = getSpectralBandSummaryText();
-  const checkpointText = "The v0.28 extreme noise fuzz safety fix is frozen, PR #43 / Band 5 audition is closed, and v0.34 fixes only the Source Readout layout.";
+  const checkpointText = "The explicit source mix bus is active for future Spectral Engine work. Spectral Engine audio remains paused/UI-only.";
   const safetyText = `Output is clamped to a safe maximum gain of ${MAX_SAFE_MASTER_GAIN}.`;
   const cutoffText = `Cutoff / Brightness uses a perceptual slider curve from ${CUTOFF_MIN_FREQUENCY} Hz to ${CUTOFF_MAX_FREQUENCY} Hz and is currently mapped to ${cutoffFrequency} Hz.`;
-  const notYetText = "No audible Band 5 filtering, all-10-band filter bank, feedback loop, vocoder, delay/reverb effects, MIDI, microphone, sensors, band-fader audio behaviour, or fake self-oscillation is connected yet.";
+  const notYetText = "No active all-10-band filter bank, feedback loop, vocoder, microphone, sensors, band-fader audio behaviour, or fake self-oscillation is connected yet.";
 
   if (wasPanicStopped && !isOscillatorRunning && !isNoiseRunning) {
     patchSummaryText.textContent =
@@ -807,19 +809,19 @@ function updatePatchSummary() {
 
   if (isOscillatorRunning && isNoiseRunning) {
     patchSummaryText.textContent =
-      `One quiet sawtooth oscillator and one quiet white noise source are running through one pre-fuzz low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the Buttery Fuzz stage, then through a post-fuzz low-pass filter that follows Cutoff, then through the unchanged master Output path set to ${outputPercent}%. ${checkpointText} ${fuzzSummary} ${safetyShapeText} ${safetyText} ${cutoffText} ${spectralStateText} ${notYetText}`;
+      `One quiet sawtooth oscillator and one quiet white noise source are running through sourceMixGain, then through one pre-fuzz low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the Buttery Fuzz stage, then through a post-fuzz low-pass filter that follows Cutoff, then through the unchanged master Output path set to ${outputPercent}%. ${checkpointText} ${fuzzSummary} ${safetyShapeText} ${safetyText} ${cutoffText} ${spectralStateText} ${notYetText}`;
     return;
   }
 
   if (isOscillatorRunning) {
     patchSummaryText.textContent =
-      `One quiet sawtooth oscillator is running at A3 through one pre-fuzz low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the Buttery Fuzz stage, then through a post-fuzz low-pass filter that follows Cutoff, then through the unchanged master Output path set to ${outputPercent}%. ${checkpointText} ${fuzzSummary} ${safetyShapeText} ${safetyText} ${cutoffText} ${spectralStateText} ${notYetText}`;
+      `One quiet sawtooth oscillator is running at A3 through sourceMixGain, then through one pre-fuzz low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the Buttery Fuzz stage, then through a post-fuzz low-pass filter that follows Cutoff, then through the unchanged master Output path set to ${outputPercent}%. ${checkpointText} ${fuzzSummary} ${safetyShapeText} ${safetyText} ${cutoffText} ${spectralStateText} ${notYetText}`;
     return;
   }
 
   if (isNoiseRunning) {
     patchSummaryText.textContent =
-      `One quiet white noise source is running through one pre-fuzz low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the Buttery Fuzz stage, then through a post-fuzz low-pass filter that follows Cutoff, then through the unchanged master Output path set to ${outputPercent}%. ${checkpointText} ${fuzzSummary} ${safetyShapeText} ${safetyText} ${cutoffText} ${spectralStateText} ${notYetText}`;
+      `One quiet white noise source is running through sourceMixGain, then through one pre-fuzz low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the Buttery Fuzz stage, then through a post-fuzz low-pass filter that follows Cutoff, then through the unchanged master Output path set to ${outputPercent}%. ${checkpointText} ${fuzzSummary} ${safetyShapeText} ${safetyText} ${cutoffText} ${spectralStateText} ${notYetText}`;
     return;
   }
 
