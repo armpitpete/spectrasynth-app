@@ -161,7 +161,7 @@ function injectScaleChancePanel() {
       <input id="scaleChanceRepeatChance" type="range" min="0" max="100" value="20" />
     </label>
     <h3>AR Envelope</h3>
-    <p class="panel-note">Triggered by Scale Chance note events. It shapes Output safely; rests do not trigger it.</p>
+    <p class="panel-note">Triggered by Scale Chance note events. It shapes source level before effects; rests do not trigger it.</p>
     <label>
       AR Envelope
       <select id="scaleChanceArEnvelopeEnabled">
