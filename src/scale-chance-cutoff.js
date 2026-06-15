@@ -28,7 +28,7 @@ const SEMITONE_TO_NOTE = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", 
 const CUTOFF_MIN_FREQUENCY = 120;
 const CUTOFF_MAX_FREQUENCY = 16000;
 const STEADY_CUTOFF_VALUE = 63;
-const MIN_ARP_NOTES = 2;
+const MIN_ARP_NOTES = 1;
 const MAX_ARP_NOTES = 12;
 
 let scaleChanceTimeout = null;
@@ -110,7 +110,7 @@ function getSelectedArpMidiNotes() {
     }
   }
 
-  return selectedNotes.length >= MIN_ARP_NOTES ? selectedNotes : [parseNoteName("C2"), parseNoteName("C3")];
+  return selectedNotes.length >= MIN_ARP_NOTES ? selectedNotes : [parseNoteName("C2")];
 }
 
 function getArpDirection() {
