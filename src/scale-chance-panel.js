@@ -9,7 +9,10 @@ const SCALES = [
   "Whole Tone",
   "Chromatic",
 ];
-const NOTE_RANGE = ["C1", "C2", "C3", "C4", "C5", "C6"];
+const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+const NOTE_RANGE = Array.from({ length: 6 }, (_, octaveIndex) =>
+  NOTE_NAMES.map((noteName) => `${noteName}${octaveIndex + 1}`)
+).flat();
 
 function getOptionMarkup(options, selectedOption) {
   return options
@@ -29,7 +32,7 @@ function injectScaleChancePanel() {
   scaleChancePanel.className = "panel scale-chance-panel";
   scaleChancePanel.innerHTML = `
     <h2>Scale Chance</h2>
-    <p class="panel-note">Visual-only controlled random note engine. It does not change pitch yet.</p>
+    <p class="panel-note">Controlled chance engine for rhythmic musical Cutoff / Brightness movement.</p>
     <label>
       Scale Chance
       <select id="scaleChanceEnabled">
@@ -77,6 +80,14 @@ function injectScaleChancePanel() {
       Note Gap
       <input id="scaleChanceNoteGap" type="range" min="0" max="1000" step="10" value="150" />
     </label>
+    <label>
+      Rest Chance
+      <input id="scaleChanceRestChance" type="range" min="0" max="100" value="15" />
+    </label>
+    <label>
+      Repeat Chance
+      <input id="scaleChanceRepeatChance" type="range" min="0" max="100" value="20" />
+    </label>
   `;
 
   controlGrid.appendChild(scaleChancePanel);
@@ -93,13 +104,16 @@ function appendScaleChanceSummary() {
   const pitchCentre = document.querySelector("#scaleChancePitchCentre");
   const noteLength = document.querySelector("#scaleChanceNoteLength");
   const noteGap = document.querySelector("#scaleChanceNoteGap");
+  const restChance = document.querySelector("#scaleChanceRestChance");
+  const repeatChance = document.querySelector("#scaleChanceRepeatChance");
 
-  if (!patchSummaryText || !enabled || !root || !scale || !lowNote || !highNote || !randomness || !pitchCentre || !noteLength || !noteGap) {
+  if (!patchSummaryText || !enabled || !root || !scale || !lowNote || !highNote || !randomness || !pitchCentre || !noteLength || !noteGap || !restChance || !repeatChance) {
     return;
   }
 
-  const existingSummary = patchSummaryText.textContent.replace(/ Scale Chance is visual-only:.*$/, "");
-  patchSummaryText.textContent = `${existingSummary} Scale Chance is visual-only: ${enabled.value}, ${root.value} ${scale.value}, range ${lowNote.value} to ${highNote.value}, randomness ${randomness.value}%, pitch centre ${pitchCentre.value}%, note length ${noteLength.value} ms, note gap ${noteGap.value} ms. It does not change oscillator pitch yet.`;
+  const existingSummary = patchSummaryText.textContent.replace(/ Scale Chance.*$/, "");
+  const modeText = enabled.value === "on" ? "active" : "off";
+  patchSummaryText.textContent = `${existingSummary} Scale Chance is ${modeText}: ${root.value} ${scale.value}, range ${lowNote.value} to ${highNote.value}, randomness ${randomness.value}%, pitch centre ${pitchCentre.value}%, note length ${noteLength.value} ms, note gap ${noteGap.value} ms, rest chance ${restChance.value}%, repeat chance ${repeatChance.value}%. It controls rhythmic musical Cutoff / Brightness movement only.`;
 }
 
 function initialiseScaleChancePanel() {
