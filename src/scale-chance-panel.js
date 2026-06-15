@@ -13,10 +13,26 @@ const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", 
 const NOTE_RANGE = Array.from({ length: 6 }, (_, octaveIndex) =>
   NOTE_NAMES.map((noteName) => `${noteName}${octaveIndex + 1}`)
 ).flat();
+const ARP_NOTE_DEFAULTS = ["C2", "E2", "G2", "C3", "E3", "G3", "C4", "E4", "G4", "C5", "E5", "G5"];
 
 function getOptionMarkup(options, selectedOption) {
   return options
     .map((option) => `<option value="${option}"${option === selectedOption ? " selected" : ""}>${option}</option>`)
+    .join("");
+}
+
+function getArpNoteMarkup() {
+  return ARP_NOTE_DEFAULTS
+    .map(
+      (selectedNote, noteIndex) => `
+        <label>
+          Arp Note ${noteIndex + 1}
+          <select id="scaleChanceArpNote${noteIndex + 1}">
+            ${getOptionMarkup(NOTE_RANGE, selectedNote)}
+          </select>
+        </label>
+      `
+    )
     .join("");
 }
 
@@ -88,9 +104,37 @@ function injectScaleChancePanel() {
       Repeat Chance
       <input id="scaleChanceRepeatChance" type="range" min="0" max="100" value="20" />
     </label>
+    <label>
+      Arp Mode
+      <select id="scaleChanceArpMode">
+        <option value="off" selected>Off</option>
+        <option value="on">On</option>
+      </select>
+    </label>
+    <label>
+      Arp Notes
+      <input id="scaleChanceArpNoteCount" type="range" min="2" max="12" step="1" value="4" />
+    </label>
+    ${getArpNoteMarkup()}
   `;
 
   controlGrid.appendChild(scaleChancePanel);
+}
+
+function getArpSummaryText() {
+  const arpMode = document.querySelector("#scaleChanceArpMode");
+  const arpNoteCount = document.querySelector("#scaleChanceArpNoteCount");
+
+  if (!arpMode || !arpNoteCount) {
+    return "";
+  }
+
+  const noteCount = Number(arpNoteCount.value);
+  const notes = Array.from({ length: noteCount }, (_, noteIndex) =>
+    document.querySelector(`#scaleChanceArpNote${noteIndex + 1}`)?.value ?? "C2"
+  );
+
+  return ` Arp mode ${arpMode.value}, ${noteCount} notes: ${notes.join(" → ")}.`;
 }
 
 function appendScaleChanceSummary() {
@@ -113,7 +157,7 @@ function appendScaleChanceSummary() {
 
   const existingSummary = patchSummaryText.textContent.replace(/ Scale Chance.*$/, "");
   const modeText = enabled.value === "on" ? "active" : "off";
-  patchSummaryText.textContent = `${existingSummary} Scale Chance is ${modeText}: ${root.value} ${scale.value}, range ${lowNote.value} to ${highNote.value}, randomness ${randomness.value}%, pitch centre ${pitchCentre.value}%, note length ${noteLength.value} ms, note gap ${noteGap.value} ms, rest chance ${restChance.value}%, repeat chance ${repeatChance.value}%. It controls rhythmic musical Cutoff / Brightness movement only.`;
+  patchSummaryText.textContent = `${existingSummary} Scale Chance is ${modeText}: ${root.value} ${scale.value}, range ${lowNote.value} to ${highNote.value}, randomness ${randomness.value}%, pitch centre ${pitchCentre.value}%, note length ${noteLength.value} ms, note gap ${noteGap.value} ms, rest chance ${restChance.value}%, repeat chance ${repeatChance.value}%. It controls rhythmic musical Cutoff / Brightness movement only.${getArpSummaryText()}`;
 }
 
 function initialiseScaleChancePanel() {

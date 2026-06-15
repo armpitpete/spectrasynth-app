@@ -28,12 +28,15 @@ const SEMITONE_TO_NOTE = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", 
 const CUTOFF_MIN_FREQUENCY = 120;
 const CUTOFF_MAX_FREQUENCY = 16000;
 const STEADY_CUTOFF_VALUE = 63;
+const MIN_ARP_NOTES = 2;
+const MAX_ARP_NOTES = 12;
 
 let scaleChanceTimeout = null;
 let previousMidiNote = null;
 let previousCutoffValue = STEADY_CUTOFF_VALUE;
 let lastChosenLabel = "none";
 let isScaleChanceApplyingCutoff = false;
+let arpStepIndex = 0;
 
 function getControl(id) {
   return document.querySelector(`#${id}`);
@@ -93,6 +96,27 @@ function getAllowedMidiNotes() {
   return allowedNotes.length > 0 ? allowedNotes : [parseNoteName("C3")];
 }
 
+function getSelectedArpMidiNotes() {
+  const arpNoteCount = Number(getControl("scaleChanceArpNoteCount")?.value ?? 4);
+  const safeNoteCount = clamp(Math.round(arpNoteCount), MIN_ARP_NOTES, MAX_ARP_NOTES);
+  const selectedNotes = [];
+
+  for (let noteIndex = 1; noteIndex <= safeNoteCount; noteIndex += 1) {
+    const noteName = getControl(`scaleChanceArpNote${noteIndex}`)?.value ?? "C2";
+    const midiNote = parseNoteName(noteName);
+
+    if (midiNote !== null) {
+      selectedNotes.push(midiNote);
+    }
+  }
+
+  return selectedNotes.length >= MIN_ARP_NOTES ? selectedNotes : [parseNoteName("C2"), parseNoteName("C3")];
+}
+
+function isArpModeOn() {
+  return getControl("scaleChanceArpMode")?.value === "on";
+}
+
 function getWeightedRandomNote(candidates) {
   const pitchCentreAmount = Number(getControl("scaleChancePitchCentre")?.value ?? 50) / 100;
   const randomnessAmount = Number(getControl("scaleChanceRandomness")?.value ?? 50) / 100;
@@ -129,6 +153,13 @@ function getWeightedRandomNote(candidates) {
   return weightedCandidates[weightedCandidates.length - 1].midiNote;
 }
 
+function getNextArpMidiNote() {
+  const arpNotes = getSelectedArpMidiNotes();
+  const midiNote = arpNotes[arpStepIndex % arpNotes.length];
+  arpStepIndex += 1;
+  return midiNote;
+}
+
 function chooseNextMidiNote() {
   const restChance = Number(getControl("scaleChanceRestChance")?.value ?? 0);
   const repeatChance = Number(getControl("scaleChanceRepeatChance")?.value ?? 0);
@@ -139,6 +170,10 @@ function chooseNextMidiNote() {
 
   if (previousMidiNote !== null && Math.random() * 100 < repeatChance) {
     return previousMidiNote;
+  }
+
+  if (isArpModeOn()) {
+    return getNextArpMidiNote();
   }
 
   return getWeightedRandomNote(getAllowedMidiNotes());
@@ -171,8 +206,9 @@ function appendScaleChanceEngineSummary(extraText = "") {
     return;
   }
 
+  const arpText = isArpModeOn() ? " Arp Mode is on." : " Arp Mode is off.";
   const existingSummary = patchSummaryText.textContent.replace(/ Scale Chance engine:.*$/, "");
-  patchSummaryText.textContent = `${existingSummary} Scale Chance engine: rhythmic musical Cutoff movement is ${isScaleChanceOn() ? "active" : "off"}. Last target: ${lastChosenLabel}. ${extraText}`.trim();
+  patchSummaryText.textContent = `${existingSummary} Scale Chance engine: rhythmic musical Cutoff movement is ${isScaleChanceOn() ? "active" : "off"}.${arpText} Last target: ${lastChosenLabel}. ${extraText}`.trim();
 }
 
 function isScaleChanceOn() {
@@ -211,6 +247,7 @@ function runScaleChanceCycle() {
 
 function restartScaleChanceEngine() {
   clearScaleChanceTimer();
+  arpStepIndex = 0;
 
   if (!isScaleChanceOn()) {
     appendScaleChanceEngineSummary("Manual Cutoff remains available.");
