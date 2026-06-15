@@ -5,8 +5,10 @@ const GAIN_RAMP_SECONDS = 0.02;
 
 const trackedSpectralBanks = new Set();
 const patchedSources = new WeakSet();
+const sourceOutputGains = new WeakSet();
 
 let isConnectPatched = false;
+let originalAudioConnect = null;
 
 function clamp(value, minimum, maximum) {
   return Math.min(maximum, Math.max(minimum, value));
@@ -32,6 +34,13 @@ function isLikelySourceGain(sourceNode) {
   return typeof GainNode !== "undefined" && sourceNode instanceof GainNode;
 }
 
+function isLikelyAudioSource(sourceNode) {
+  return (
+    (typeof OscillatorNode !== "undefined" && sourceNode instanceof OscillatorNode) ||
+    (typeof AudioBufferSourceNode !== "undefined" && sourceNode instanceof AudioBufferSourceNode)
+  );
+}
+
 function getBandTargetGain(bandIndex) {
   const fader = document.querySelector(`.spectral-panel .band-fader[data-band-index="${bandIndex}"]`);
   const muteButton = document.querySelector(`.spectral-panel .mute-button[data-band-index="${bandIndex}"]`);
@@ -46,7 +55,7 @@ function getBandTargetGain(bandIndex) {
 }
 
 function createSpectralBank(sourceNode, destinationNode) {
-  if (patchedSources.has(sourceNode)) {
+  if (!originalAudioConnect || patchedSources.has(sourceNode)) {
     return;
   }
 
@@ -62,9 +71,9 @@ function createSpectralBank(sourceNode, destinationNode) {
     bandFilter.Q.setValueAtTime(SPECTRAL_BAND_Q[bandIndex], context.currentTime);
     bandGain.gain.setValueAtTime(getBandTargetGain(bandIndex), context.currentTime);
 
-    sourceNode.connect(bandFilter);
-    bandFilter.connect(bandGain);
-    bandGain.connect(destinationNode);
+    originalAudioConnect.call(sourceNode, bandFilter);
+    originalAudioConnect.call(bandFilter, bandGain);
+    originalAudioConnect.call(bandGain, destinationNode);
 
     return bandGain;
   });
@@ -86,12 +95,16 @@ function patchAudioConnect() {
     return;
   }
 
-  const originalConnect = AudioNode.prototype.connect;
+  originalAudioConnect = AudioNode.prototype.connect;
 
   AudioNode.prototype.connect = function patchedConnect(destinationNode, ...args) {
-    const result = originalConnect.call(this, destinationNode, ...args);
+    const result = originalAudioConnect.call(this, destinationNode, ...args);
 
-    if (isLikelySourceGain(this) && isLikelyMainToneFilter(destinationNode)) {
+    if (isLikelyAudioSource(this) && isLikelySourceGain(destinationNode)) {
+      sourceOutputGains.add(destinationNode);
+    }
+
+    if (sourceOutputGains.has(this) && isLikelyMainToneFilter(destinationNode)) {
       createSpectralBank(this, destinationNode);
     }
 
