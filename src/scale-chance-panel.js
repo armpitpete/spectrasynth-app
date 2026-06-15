@@ -160,6 +160,23 @@ function injectScaleChancePanel() {
       Repeat Chance
       <input id="scaleChanceRepeatChance" type="range" min="0" max="100" value="20" />
     </label>
+    <h3>AR Envelope</h3>
+    <p class="panel-note">Triggered by Scale Chance note events. It shapes Output safely; rests do not trigger it.</p>
+    <label>
+      AR Envelope
+      <select id="scaleChanceArEnvelopeEnabled">
+        <option value="off" selected>Off</option>
+        <option value="on">On</option>
+      </select>
+    </label>
+    <label>
+      Attack
+      <input id="scaleChanceArAttack" type="range" min="5" max="1000" step="5" value="25" />
+    </label>
+    <label>
+      Release
+      <input id="scaleChanceArRelease" type="range" min="5" max="2000" step="5" value="180" />
+    </label>
     <label>
       Arp Mode
       <select id="scaleChanceArpMode">
@@ -299,6 +316,18 @@ function getArpSummaryText() {
   return ` Arp mode ${arpMode.value}, direction ${getArpDirectionLabel()}, ${noteCount} notes: ${notes.join(" → ")}.`;
 }
 
+function getArEnvelopeSummaryText() {
+  const arEnabled = document.querySelector("#scaleChanceArEnvelopeEnabled");
+  const attack = document.querySelector("#scaleChanceArAttack");
+  const release = document.querySelector("#scaleChanceArRelease");
+
+  if (!arEnabled || !attack || !release) {
+    return "";
+  }
+
+  return ` AR Envelope ${arEnabled.value}, attack ${attack.value} ms, release ${release.value} ms.`;
+}
+
 function getClusterSummaryText() {
   const clusterMode = document.querySelector("#scaleChanceClusterMode");
   const clusterCount = document.querySelector("#scaleChanceClusterCount");
@@ -339,7 +368,7 @@ function appendScaleChanceSummary() {
 
   const existingSummary = patchSummaryText.textContent.replace(/ Scale Chance.*$/, "");
   const modeText = enabled.value === "on" ? "active" : "off";
-  patchSummaryText.textContent = `${existingSummary} Scale Chance is ${modeText}: ${root.value} ${scale.value}, range ${lowNote.value} to ${highNote.value}, randomness ${randomness.value}%, pitch centre ${pitchCentre.value}%, note length ${noteLength.value} ms, note gap ${noteGap.value} ms, rest chance ${restChance.value}%, repeat chance ${repeatChance.value}%. It controls rhythmic musical Cutoff / Brightness movement only.${getArpSummaryText()}${getClusterSummaryText()}`;
+  patchSummaryText.textContent = `${existingSummary} Scale Chance is ${modeText}: ${root.value} ${scale.value}, range ${lowNote.value} to ${highNote.value}, randomness ${randomness.value}%, pitch centre ${pitchCentre.value}%, note length ${noteLength.value} ms, note gap ${noteGap.value} ms, rest chance ${restChance.value}%, repeat chance ${repeatChance.value}%. It controls rhythmic musical Cutoff / Brightness movement only.${getArEnvelopeSummaryText()}${getArpSummaryText()}${getClusterSummaryText()}`;
 }
 
 function initialiseScaleChancePanel() {
