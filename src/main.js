@@ -22,7 +22,7 @@ const STEREO_SPREAD_GAIN = 0.42;
 const SPECTRAL_BAND_5_INDEX = 4;
 const SPECTRAL_BAND_5_FREQUENCY = 1200;
 const SPECTRAL_BAND_5_Q = 1.2;
-const SPECTRAL_BAND_5_MAX_GAIN = 0.1;
+const SPECTRAL_BAND_5_MAX_GAIN = 0.35;
 const EXTREME_NOISE_RESONANCE_START = 30;
 const EXTREME_NOISE_RESONANCE_TARGET = 24;
 const EXTREME_NOISE_FUZZ_START = 0.85;
@@ -33,7 +33,7 @@ const bands = [
   { number: 2, label: "Low-Mid", height: 34 },
   { number: 3, label: "Body", height: 40 },
   { number: 4, label: "Warmth", height: 46 },
-  { number: 5, label: "Voice", height: 52 },
+  { number: 5, label: "Voice", height: 100 },
   { number: 6, label: "Edge", height: 58 },
   { number: 7, label: "Presence", height: 64 },
   { number: 8, label: "Bright", height: 70 },
@@ -805,7 +805,7 @@ function getSpectralBand5SummaryText() {
   }
 
   const gainPercent = Math.round((getSpectralBand5TargetGain() / SPECTRAL_BAND_5_MAX_GAIN) * 100);
-  const stateText = bandState.isMuted ? "muted" : `${gainPercent}% of its safe test level`;
+  const stateText = bandState.isMuted ? "muted" : `${gainPercent}% of its boosted safe test level`;
 
   return `Band 5 ${bandState.label} is the only audible Spectral Engine test band. It is a 1200 Hz bandpass branch from sourceMixGain with Q ${SPECTRAL_BAND_5_Q}, reinserting into the existing stereo/output path after the core filter/fuzz path. It is currently ${stateText}.`;
 }
@@ -844,19 +844,19 @@ function updatePatchSummary() {
 
   if (isOscillatorRunning && isNoiseRunning) {
     patchSummaryText.textContent =
-      `One quiet sawtooth oscillator and one quiet white noise source are running through sourceMixGain, then through one pre-fuzz low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the Buttery Fuzz stage, then through a post-fuzz low-pass filter that follows Cutoff, then through the unchanged master Output path set to ${outputPercent}%. Band 5 also receives a safe parallel 1200 Hz bandpass test branch. ${checkpointText} ${fuzzSummary} ${safetyShapeText} ${safetyText} ${cutoffText} ${spectralStateText} ${notYetText}`;
+      `One quiet sawtooth oscillator and one quiet white noise source are running through sourceMixGain, then through one pre-fuzz low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the Buttery Fuzz stage, then through a post-fuzz low-pass filter that follows Cutoff, then through the unchanged master Output path set to ${outputPercent}%. Band 5 also receives a boosted safe parallel 1200 Hz bandpass test branch. ${checkpointText} ${fuzzSummary} ${safetyShapeText} ${safetyText} ${cutoffText} ${spectralStateText} ${notYetText}`;
     return;
   }
 
   if (isOscillatorRunning) {
     patchSummaryText.textContent =
-      `One quiet sawtooth oscillator is running at A3 through sourceMixGain, then through one pre-fuzz low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the Buttery Fuzz stage, then through a post-fuzz low-pass filter that follows Cutoff, then through the unchanged master Output path set to ${outputPercent}%. Band 5 also receives a safe parallel 1200 Hz bandpass test branch. ${checkpointText} ${fuzzSummary} ${safetyShapeText} ${safetyText} ${cutoffText} ${spectralStateText} ${notYetText}`;
+      `One quiet sawtooth oscillator is running at A3 through sourceMixGain, then through one pre-fuzz low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the Buttery Fuzz stage, then through a post-fuzz low-pass filter that follows Cutoff, then through the unchanged master Output path set to ${outputPercent}%. Band 5 also receives a boosted safe parallel 1200 Hz bandpass test branch. ${checkpointText} ${fuzzSummary} ${safetyShapeText} ${safetyText} ${cutoffText} ${spectralStateText} ${notYetText}`;
     return;
   }
 
   if (isNoiseRunning) {
     patchSummaryText.textContent =
-      `One quiet white noise source is running through sourceMixGain, then through one pre-fuzz low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the Buttery Fuzz stage, then through a post-fuzz low-pass filter that follows Cutoff, then through the unchanged master Output path set to ${outputPercent}%. Band 5 also receives a safe parallel 1200 Hz bandpass test branch. ${checkpointText} ${fuzzSummary} ${safetyShapeText} ${safetyText} ${cutoffText} ${spectralStateText} ${notYetText}`;
+      `One quiet white noise source is running through sourceMixGain, then through one pre-fuzz low-pass filter set to ${cutoffFrequency} Hz with resonance set to ${resonanceAmount}, then through the Buttery Fuzz stage, then through a post-fuzz low-pass filter that follows Cutoff, then through the unchanged master Output path set to ${outputPercent}%. Band 5 also receives a boosted safe parallel 1200 Hz bandpass test branch. ${checkpointText} ${fuzzSummary} ${safetyShapeText} ${safetyText} ${cutoffText} ${spectralStateText} ${notYetText}`;
     return;
   }
 
