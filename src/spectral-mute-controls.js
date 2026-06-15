@@ -1,3 +1,5 @@
+const SPECTRAL_MUTE_CHANGE_EVENT = "spectral-band-mute-change";
+
 function getBandStrip(button) {
   return button.closest(".band-strip");
 }
@@ -24,6 +26,15 @@ function updateSpectralMuteVisualState(button) {
   }
 }
 
+function notifySpectralMuteStateChanged(button) {
+  const bandIndex = Number(button.dataset.bandIndex);
+  const isMuted = button.getAttribute("aria-pressed") === "true";
+
+  window.dispatchEvent(new CustomEvent(SPECTRAL_MUTE_CHANGE_EVENT, {
+    detail: { bandIndex, isMuted }
+  }));
+}
+
 function updateSpectralPanelWording() {
   const spectralPanelNote = document.querySelector(".spectral-panel .section-heading p");
 
@@ -31,7 +42,7 @@ function updateSpectralPanelWording() {
     return;
   }
 
-  spectralPanelNote.textContent = "Band 5 has a stable silent internal filter tap. Mute buttons now toggle visible band mute state; full audio band mute waits for the filter-bank engine.";
+  spectralPanelNote.textContent = "Faders shape the audible spectral bands. Mute and Unmute now update the same audio band state.";
 }
 
 function initialiseSpectralMuteControls() {
@@ -41,7 +52,10 @@ function initialiseSpectralMuteControls() {
     updateSpectralMuteVisualState(button);
 
     button.addEventListener("click", () => {
-      window.requestAnimationFrame(() => updateSpectralMuteVisualState(button));
+      window.requestAnimationFrame(() => {
+        updateSpectralMuteVisualState(button);
+        notifySpectralMuteStateChanged(button);
+      });
     });
   });
 
