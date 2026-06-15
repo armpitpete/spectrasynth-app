@@ -1,12 +1,7 @@
 const BAND_5_INDEX = 4;
-const BAND_5_PROOF_FREQUENCY = 1200;
-const BAND_5_PROOF_MAX_GAIN = 0.08;
-const SPECTRAL_AUDIO_STATUS = "Band 5 Voice has a temporary audible proof tone. Bands 1–4 and 6–10 remain UI-only.";
+const SPECTRAL_AUDIO_STATUS = "Band 5 Voice now uses the source-fed audition branch. No fixed proof tone is generated. Bands 1–4 and 6–10 remain UI-only.";
 
-let proofAudioContext = null;
-let proofOscillator = null;
-let proofGain = null;
-let proofReadout = null;
+let band5Readout = null;
 
 function getBandFaders() {
   return Array.from(document.querySelectorAll(".spectral-panel .band-fader"));
@@ -34,87 +29,37 @@ function getBand5FaderAmount() {
   return Math.min(1, Math.max(0, Number(fader?.value ?? 0) / 100));
 }
 
-function getBand5ProofTargetGain() {
-  if (isBand5Muted()) {
-    return 0;
-  }
-
-  return getBand5FaderAmount() * BAND_5_PROOF_MAX_GAIN;
-}
-
-function ensureProofReadout() {
+function ensureBand5Readout() {
   const spectralPanel = document.querySelector(".spectral-panel");
 
   if (!spectralPanel) {
     return null;
   }
 
-  if (!proofReadout) {
-    proofReadout = document.createElement("p");
-    proofReadout.className = "spectral-proof-readout";
-    proofReadout.style.margin = "0.75rem 0 0";
-    proofReadout.style.fontSize = "0.88rem";
-    proofReadout.style.fontWeight = "700";
-    proofReadout.style.color = "#ffd8ef";
-    spectralPanel.appendChild(proofReadout);
+  if (!band5Readout) {
+    band5Readout = document.createElement("p");
+    band5Readout.className = "spectral-band5-readout";
+    band5Readout.style.margin = "0.75rem 0 0";
+    band5Readout.style.fontSize = "0.88rem";
+    band5Readout.style.fontWeight = "700";
+    band5Readout.style.color = "#ffd8ef";
+    spectralPanel.appendChild(band5Readout);
   }
 
-  return proofReadout;
+  return band5Readout;
 }
 
-function updateProofReadout() {
-  const readout = ensureProofReadout();
+function updateBand5Readout() {
+  const readout = ensureBand5Readout();
 
   if (!readout) {
     return;
   }
 
   const faderPercent = Math.round(getBand5FaderAmount() * 100);
-  const isMuted = isBand5Muted();
-  const targetGain = getBand5ProofTargetGain();
+  const muted = isBand5Muted();
 
-  readout.textContent = `Band 5 proof tone: ${isMuted ? "muted" : "active"}; fader ${faderPercent}%; proof gain ${targetGain.toFixed(3)}.`;
-}
-
-async function ensureProofAudio() {
-  if (!proofAudioContext) {
-    proofAudioContext = new AudioContext();
-    proofGain = proofAudioContext.createGain();
-    proofOscillator = proofAudioContext.createOscillator();
-
-    proofOscillator.type = "sine";
-    proofOscillator.frequency.setValueAtTime(BAND_5_PROOF_FREQUENCY, proofAudioContext.currentTime);
-    proofGain.gain.setValueAtTime(0, proofAudioContext.currentTime);
-
-    proofOscillator.connect(proofGain);
-    proofGain.connect(proofAudioContext.destination);
-    proofOscillator.start();
-  }
-
-  if (proofAudioContext.state === "suspended") {
-    await proofAudioContext.resume();
-  }
-}
-
-async function updateBand5ProofTone() {
-  await ensureProofAudio();
-
-  if (!proofGain || !proofAudioContext) {
-    return;
-  }
-
-  proofGain.gain.setTargetAtTime(getBand5ProofTargetGain(), proofAudioContext.currentTime, 0.015);
-  updateProofReadout();
-}
-
-function silenceBand5ProofTone() {
-  if (!proofGain || !proofAudioContext) {
-    return;
-  }
-
-  proofGain.gain.cancelScheduledValues(proofAudioContext.currentTime);
-  proofGain.gain.setTargetAtTime(0, proofAudioContext.currentTime, 0.01);
-  updateProofReadout();
+  readout.textContent = `Band 5 source-fed branch: ${muted ? "muted" : "active"}; fader ${faderPercent}%; fixed proof tone removed.`;
 }
 
 function updateSpectralPanelWording() {
@@ -135,46 +80,43 @@ function updatePatchSummaryWording() {
   }
 
   patchSummaryText.textContent = patchSummaryText.textContent
-    .replaceAll("Spectral Engine audio is paused while the core synth path is restored.", "Band 5 has a temporary audible proof tone for control testing.")
-    .replaceAll("Spectral Engine audio is paused while the core synth path is restored. Faders and Mute/Unmute are UI-only in this recovery build.", SPECTRAL_AUDIO_STATUS)
-    .replaceAll("Faders and Mute/Unmute now shape audible spectral bands.", "Only Band 5 fader and Mute/Unmute control the temporary audible proof tone.")
+    .replaceAll("Band 5 has a temporary audible proof tone for control testing.", "Band 5 uses the source-fed audition branch; the fixed proof tone has been removed.")
+    .replaceAll("Band 5 Voice has a temporary audible proof tone. Bands 1–4 and 6–10 remain UI-only.", SPECTRAL_AUDIO_STATUS)
+    .replaceAll("Only Band 5 fader and Mute/Unmute control the temporary audible proof tone.", "Only Band 5 fader and Mute/Unmute control the source-fed audition branch.")
     .replaceAll("No active all-10-band filter bank", "No active full ten-band filter bank");
 }
 
-function initialiseBand5ProofMode() {
+function initialiseBand5SourceFedStatus() {
   const band5Fader = getBand5Fader();
   const band5MuteButton = getBand5MuteButton();
-  const panicButton = document.querySelector("#panicButton");
 
   updateSpectralPanelWording();
   updatePatchSummaryWording();
-  updateProofReadout();
+  updateBand5Readout();
 
   band5Fader?.addEventListener("input", () => {
-    updateBand5ProofTone();
+    updateBand5Readout();
     updatePatchSummaryWording();
   });
 
   band5MuteButton?.addEventListener("click", () => {
     window.requestAnimationFrame(() => {
-      updateBand5ProofTone();
+      updateBand5Readout();
       updatePatchSummaryWording();
     });
   });
 
   window.addEventListener("spectral-band-mute-change", (event) => {
     if (event.detail?.bandIndex === BAND_5_INDEX) {
-      updateBand5ProofTone();
+      updateBand5Readout();
       updatePatchSummaryWording();
     }
   });
-
-  panicButton?.addEventListener("click", silenceBand5ProofTone);
 }
 
 function initialiseSpectralBandAudio() {
   console.info(SPECTRAL_AUDIO_STATUS);
-  initialiseBand5ProofMode();
+  initialiseBand5SourceFedStatus();
 
   getBandFaders().forEach((fader) => {
     fader.addEventListener("input", updatePatchSummaryWording);
