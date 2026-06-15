@@ -30,6 +30,10 @@ const CUTOFF_MAX_FREQUENCY = 16000;
 const STEADY_CUTOFF_VALUE = 63;
 const MIN_ARP_NOTES = 1;
 const MAX_ARP_NOTES = 12;
+const MIN_CLUSTER_COUNT = 1;
+const MAX_CLUSTER_COUNT = 4;
+const MIN_CLUSTER_SIZE = 1;
+const MAX_CLUSTER_SIZE = 6;
 
 let scaleChanceTimeout = null;
 let previousMidiNote = null;
@@ -37,6 +41,8 @@ let previousCutoffValue = STEADY_CUTOFF_VALUE;
 let lastChosenLabel = "none";
 let isScaleChanceApplyingCutoff = false;
 let arpStepIndex = 0;
+let clusterIndex = 0;
+let clusterNoteStepIndex = 0;
 
 function getControl(id) {
   return document.querySelector(`#${id}`);
@@ -142,6 +148,60 @@ function getDirectedArpMidiNotes() {
   }
 }
 
+function getClusterCount() {
+  return clamp(Math.round(Number(getControl("scaleChanceClusterCount")?.value ?? 1)), MIN_CLUSTER_COUNT, MAX_CLUSTER_COUNT);
+}
+
+function getClusterSize() {
+  return clamp(Math.round(Number(getControl("scaleChanceClusterSize")?.value ?? 1)), MIN_CLUSTER_SIZE, MAX_CLUSTER_SIZE);
+}
+
+function getClusterDirection() {
+  return getControl("scaleChanceClusterDirection")?.value ?? "as-selected";
+}
+
+function isClusterModeOn() {
+  return getControl("scaleChanceClusterMode")?.value === "on";
+}
+
+function getSelectedClusterMidiNotes(activeClusterIndex) {
+  const safeClusterIndex = clamp(activeClusterIndex, 0, getClusterCount() - 1);
+  const clusterSize = getClusterSize();
+  const selectedNotes = [];
+
+  for (let noteIndex = 1; noteIndex <= clusterSize; noteIndex += 1) {
+    const noteName = getControl(`scaleChanceCluster${safeClusterIndex + 1}Note${noteIndex}`)?.value ?? "C2";
+    const midiNote = parseNoteName(noteName);
+
+    if (midiNote !== null) {
+      selectedNotes.push(midiNote);
+    }
+  }
+
+  return selectedNotes.length > 0 ? selectedNotes : [parseNoteName("C2")];
+}
+
+function getDirectedClusterMidiNotes(activeClusterIndex) {
+  const selectedNotes = getSelectedClusterMidiNotes(activeClusterIndex);
+  const ascendingNotes = [...selectedNotes].sort((a, b) => a - b);
+  const descendingNotes = [...ascendingNotes].reverse();
+
+  switch (getClusterDirection()) {
+    case "up":
+      return ascendingNotes;
+    case "down":
+      return descendingNotes;
+    case "up-down":
+      return ascendingNotes.length > 2
+        ? [...ascendingNotes, ...ascendingNotes.slice(1, -1).reverse()]
+        : ascendingNotes;
+    case "random":
+    case "as-selected":
+    default:
+      return selectedNotes;
+  }
+}
+
 function isArpModeOn() {
   return getControl("scaleChanceArpMode")?.value === "on";
 }
@@ -194,6 +254,25 @@ function getNextArpMidiNote() {
   return midiNote;
 }
 
+function getNextClusterMidiNote() {
+  const clusterCount = getClusterCount();
+  const activeClusterIndex = clusterIndex % clusterCount;
+  const clusterNotes = getDirectedClusterMidiNotes(activeClusterIndex);
+  const clusterDirection = getClusterDirection();
+  const midiNote = clusterDirection === "random"
+    ? clusterNotes[Math.floor(Math.random() * clusterNotes.length)]
+    : clusterNotes[clusterNoteStepIndex % clusterNotes.length];
+
+  clusterNoteStepIndex += 1;
+
+  if (clusterNoteStepIndex >= clusterNotes.length) {
+    clusterNoteStepIndex = 0;
+    clusterIndex = (clusterIndex + 1) % clusterCount;
+  }
+
+  return midiNote;
+}
+
 function chooseNextMidiNote() {
   const restChance = Number(getControl("scaleChanceRestChance")?.value ?? 0);
   const repeatChance = Number(getControl("scaleChanceRepeatChance")?.value ?? 0);
@@ -204,6 +283,10 @@ function chooseNextMidiNote() {
 
   if (previousMidiNote !== null && Math.random() * 100 < repeatChance) {
     return previousMidiNote;
+  }
+
+  if (isClusterModeOn()) {
+    return getNextClusterMidiNote();
   }
 
   if (isArpModeOn()) {
@@ -242,8 +325,11 @@ function appendScaleChanceEngineSummary(extraText = "") {
 
   const directionText = getArpDirection().replaceAll("-", " / ");
   const arpText = isArpModeOn() ? ` Arp Mode is on: ${directionText}.` : " Arp Mode is off.";
+  const clusterText = isClusterModeOn()
+    ? ` Cluster Mode is on: cluster ${(clusterIndex % getClusterCount()) + 1}, ${getClusterSize()} notes per cluster, ${getClusterDirection().replaceAll("-", " / ")}.`
+    : " Cluster Mode is off.";
   const existingSummary = patchSummaryText.textContent.replace(/ Scale Chance engine:.*$/, "");
-  patchSummaryText.textContent = `${existingSummary} Scale Chance engine: rhythmic musical Cutoff movement is ${isScaleChanceOn() ? "active" : "off"}.${arpText} Last target: ${lastChosenLabel}. ${extraText}`.trim();
+  patchSummaryText.textContent = `${existingSummary} Scale Chance engine: rhythmic musical Cutoff movement is ${isScaleChanceOn() ? "active" : "off"}.${arpText}${clusterText} Last target: ${lastChosenLabel}. ${extraText}`.trim();
 }
 
 function isScaleChanceOn() {
@@ -283,6 +369,8 @@ function runScaleChanceCycle() {
 function restartScaleChanceEngine() {
   clearScaleChanceTimer();
   arpStepIndex = 0;
+  clusterIndex = 0;
+  clusterNoteStepIndex = 0;
 
   if (!isScaleChanceOn()) {
     appendScaleChanceEngineSummary("Manual Cutoff remains available.");
