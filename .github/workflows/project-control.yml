@@ -1,0 +1,46 @@
+name: Project control
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  validate-project-control:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Validate singular project authority
+        shell: bash
+        run: |
+          python - <<'PY'
+          import re, sys
+          from pathlib import Path
+          root=Path('.'); a=root/'AGENTS.md'; p=root/'STATUS.md'
+          allowed={'UNASSESSED','DIAGNOSTIC','DESIGN','AUTHORISED','IMPLEMENTING','VALIDATING','REVIEW','READY','AUTHORITATIVE','BLOCKED','SUPERSEDED','CLOSED'}
+          heads=('## Current authority','## Current lane','## Done','## To do','## Next bounded gate','## Stop point')
+          def fail(m): print(f'FAIL: {m}',file=sys.stderr); raise SystemExit(1)
+          if not a.is_file() or not p.is_file(): fail('AGENTS.md and STATUS.md are mandatory')
+          A=a.read_text(encoding='utf-8'); S=p.read_text(encoding='utf-8')
+          for q in ('Recursive Project Improvement Standard v1.0','exact current repository head','Do not begin a new lane automatically','## New-chat bootstrap','sole repository-level completion authority'):
+              if q.lower() not in A.lower(): fail(f'AGENTS.md missing: {q}')
+          def field(k):
+              m=re.search(rf'(?m)^{re.escape(k)}:\s*(.+?)\s*$',S); return m.group(1).strip() if m else None
+          if field('completion_authority')!='true' or field('standard')!='Recursive Project Improvement Standard v1.0' or field('status') not in allowed: fail('invalid STATUS.md front matter')
+          for h in heads:
+              if S.count(h)!=1: fail(f'exactly one {h} is required')
+              m=re.search(rf'(?ms)^{re.escape(h)}\s*$\n(.*?)(?=^##\s|\Z)',S)
+              if not m or not m.group(1).strip(): fail(f'empty section: {h}')
+          if re.search(r'(?i)(\[TODO\]|\[exact (?:action|head|sha|version)\]|\bTBD\b)',S): fail('unresolved STATUS.md placeholder')
+          found=[]
+          for f in root.rglob('*.md'):
+              if any(x in {'.git','.venv','node_modules','vendor','dist','build','archive','archives'} for x in f.parts): continue
+              try: t=f.read_text(encoding='utf-8')
+              except UnicodeDecodeError: continue
+              if re.search(r'(?m)^completion_authority:\s*true\s*$',t): found.append(f.as_posix())
+          if found!=['STATUS.md']: fail(f'completion authority must be singular root STATUS.md; found {found}')
+          print('PASS: project-control authority is present, singular and structurally valid')
+          PY
