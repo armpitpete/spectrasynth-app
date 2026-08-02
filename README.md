@@ -14,11 +14,13 @@ This is the version displayed by current `main` source. The earlier README claim
 
 The repository has advanced through several experimental audio lanes. Version labels alone do not prove that every visible control or historical branch is accepted. The current authority below is derived from the active `src/main.js` path and must still be confirmed through the manual listening checklist before a new stable audio checkpoint is declared.
 
+The first v0.34 listening pass found an interface-clarity defect: the control called `Arp Mode` moved Cutoff / Brightness while the core oscillator remained fixed. v0.34 therefore remains a source checkpoint only until the corrected Cutoff Arp wording is built and manually retested.
+
 ## Current accepted-source boundary
 
 ### Sources
 
-- one quiet sawtooth oscillator at A3;
+- one quiet sawtooth oscillator fixed at A3 / 220 Hz;
 - one quiet white-noise source;
 - both feed an explicit `sourceMixGain` bus;
 - sources start only after deliberate user action;
@@ -31,6 +33,15 @@ The repository has advanced through several experimental audio lanes. Version la
 - Buttery Fuzz with rounded waveshaping, dry/wet blend and post-fuzz filtering;
 - fixed centre plus left/right delayed stereo spread;
 - master Output clamped to a maximum gain of `0.35`.
+
+### Scale Chance and Cutoff Arp
+
+- Scale Chance generates note-labelled musical events and maps each selected note frequency to a Cutoff / Brightness target;
+- Cutoff Arp determines the order of those cutoff targets;
+- Cutoff Cluster controls group those cutoff targets;
+- the note names describe filter targets and do not change oscillator pitch;
+- the core oscillator remains fixed at A3 / 220 Hz;
+- a true Pitch Arp is not implemented in v0.34 and belongs to separate issue #142 after this clarity repair is accepted.
 
 ### Safety
 
@@ -57,7 +68,8 @@ The display reports:
 - Cutoff frequency;
 - Resonance;
 - Buttery Fuzz;
-- extreme safety state.
+- extreme safety state;
+- Cutoff Arp state and the fixed A3 / 220 Hz oscillator contract.
 
 The readout is display-only and does not alter audio.
 
@@ -71,7 +83,6 @@ The source tree includes interface or experimental modules for areas such as:
 - Reverb;
 - active-control wording;
 - stereo width;
-- Scale Chance controls;
 - spectral mute and band-audio experiments.
 
 Their presence in the repository does not by itself establish that each path is complete, currently connected, manually accepted or part of a stable release. Each audio path needs its own source review and listening evidence.
@@ -87,6 +98,7 @@ Current core authority does not claim:
 - sensors;
 - audio behaviour for every spectral fader;
 - real self-oscillation;
+- oscillator pitch arpeggiation or a Pitch Arp;
 - MIDI;
 - presets;
 - recording or export.
@@ -98,6 +110,12 @@ Do not describe a visible placeholder or imported module as working audio unless
 ```bash
 npm install
 npm run dev
+```
+
+Run the focused source-contract checks:
+
+```bash
+npm test
 ```
 
 Build the production output:
@@ -128,7 +146,8 @@ The checklist covers:
 - extreme Noise safety shaping;
 - Band 5 level and mute behaviour;
 - analyser and source readout;
-- confirmation that the other bands remain UI-only.
+- confirmation that the other bands remain UI-only;
+- confirmation that Cutoff Arp moves Cutoff / Brightness while oscillator pitch remains fixed at A3 / 220 Hz.
 
 ## Acceptance rule
 
@@ -144,18 +163,22 @@ A stable audio checkpoint requires:
 
 1. exact commit identity;
 2. successful production build;
-3. manual listening against the current checklist;
-4. safe Output and Panic Stop proof;
-5. no unexpected audio from UI-only controls;
-6. a short acceptance record stating what was heard and what remains unimplemented.
+3. successful focused contract tests;
+4. manual listening against the current checklist;
+5. safe Output and Panic Stop proof;
+6. no unexpected audio from UI-only controls;
+7. clear agreement between Cutoff Arp wording and the fixed-pitch sound;
+8. a short acceptance record stating what was heard and what remains unimplemented.
 
 ## Immediate gate
 
-Run the v0.34 manual audio checklist against the exact branch or `main` commit being considered. Then either:
+Build and manually test the exact corrected Issue #141 head. Then either:
 
-- record v0.34 as an accepted stable checkpoint; or
-- list exact defects and keep it as a source checkpoint only.
+- accept the Cutoff Arp clarity repair and record v0.34 as the corrected source checkpoint ready for the next protected decision; or
+- list exact remaining defects and keep v0.34 as an unaccepted source checkpoint.
+
+PR #138 remains draft and unmerged. Issue #142 must not begin until Issue #141 is accepted.
 
 ## Stop rule
 
-Do not add more spectral bands, feedback, microphone, vocoder, MIDI, presets, effects or sensor behaviour until the current source path is manually tested and its accepted boundary is recorded.
+Do not add Pitch Arp, more spectral bands, feedback, microphone, vocoder, MIDI, presets, effects or sensor behaviour until the Cutoff Arp clarity repair is manually tested and its accepted boundary is recorded.
