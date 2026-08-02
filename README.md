@@ -4,13 +4,21 @@ SpectraSynth is a browser-based MerrinLab instrument prototype for testing a vis
 
 ## Current checkpoint
 
-The corrected v0.34 candidate has passed its required automated checks and owner hands-on listening review.
+**v0.34 — accepted Cutoff and Pitch shared-note checkpoint**
 
-Accepted audio candidate:
+Merged `main` commit:
+
+`ccd3d8f7d8fc1b3f7161199f7ecd19e5326c8126`
+
+Exact manually accepted audio candidate:
 
 `4987e2544bd118d89ef339b725c8c35b4e83267d`
 
-The candidate is accepted for protected merge review, but it is not yet the stable repository checkpoint because it has not been merged into `main`.
+Protected review head:
+
+`26e5b7254356f1d27da02535ee786d2e0f1b9c1a`
+
+PR #144 was guarded squash-merged on 2 August 2026 after automated verification, owner hands-on listening acceptance and protected review.
 
 ## Current audio path
 
@@ -98,14 +106,13 @@ The recorded accepted result is in:
 
 `docs/manual-audio-test-acceptance-2026-08-02.md`
 
-The exact accepted audio candidate was built, automatically verified and manually accepted. Any later runtime change requires a new exact-head listening decision. Documentation-only reconciliation may inherit the accepted audio evidence only when comparison proves that the runtime tree is unchanged.
+The exact accepted audio candidate was built, automatically verified and manually accepted. The protected review proved that later changes before merge were documentation-only. Any later runtime change requires a new exact-head listening decision.
 
-## Threadkeeper gate
+## Threadkeeper record
 
-PR #144 is the single protected review lane against `main`.
+- PR #144 merged the accepted checkpoint into `main`.
+- Issues #140, #141 and #142 are completed.
+- PRs #138 and #143 were closed as superseded without merge.
+- Issue #145 reconciles this post-merge repository wording.
 
-PR #138 and PR #143 are superseded draft units and are not authorised for standalone merge.
-
-Do not merge PR #144 if its accepted runtime content changes, verification fails, a review blocker appears or the musical boundary above is altered.
-
-No merge, deployment or publication is authorised yet.
+Deployment and publication remain separate protected decisions. This checkpoint record does not authorise either.

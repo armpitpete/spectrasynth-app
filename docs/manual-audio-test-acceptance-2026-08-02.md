@@ -30,8 +30,26 @@ The accepted listening gate covers:
 
 The exact audio acceptance belongs to the commit above.
 
-A later review head may inherit this evidence only when comparison proves that every change after the accepted commit is documentation-only and that no runtime, test, dependency or workflow file changed.
+A later review or merge commit may inherit this evidence only when comparison proves that every change after the accepted commit is documentation-only and that no runtime, test, dependency or workflow file changed.
+
+## Protected review
+
+Protected review head:
+
+`26e5b7254356f1d27da02535ee786d2e0f1b9c1a`
+
+The delta after manual audio acceptance was documentation-only. Verification passed again on that head.
+
+## Merge outcome
+
+PR #144 was guarded squash-merged into `main` at:
+
+`ccd3d8f7d8fc1b3f7161199f7ecd19e5326c8126`
+
+Issues #140, #141 and #142 were closed as completed. PRs #138 and #143 were closed as superseded without merge.
+
+The merged commit is the accepted v0.34 repository checkpoint.
 
 ## Boundary
 
-This record authorises protected review only. It does not authorise merge, deployment or publication.
+This record documents acceptance and merge. It does not authorise deployment or publication.
