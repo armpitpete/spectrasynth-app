@@ -90,7 +90,13 @@ npm run preview
 
 ## Acceptance evidence
 
-Use `docs/manual-audio-test-checklist.md` for the listening contract and recorded result.
+The listening contract is in:
+
+`docs/manual-audio-test-checklist.md`
+
+The recorded accepted result is in:
+
+`docs/manual-audio-test-acceptance-2026-08-02.md`
 
 The exact accepted audio candidate was built, automatically verified and manually accepted. Any later runtime change requires a new exact-head listening decision. Documentation-only reconciliation may inherit the accepted audio evidence only when comparison proves that the runtime tree is unchanged.
 
