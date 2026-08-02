@@ -62,7 +62,7 @@ function getArpNoteMarkup() {
     .map(
       (selectedNote, noteIndex) => `
         <label>
-          Arp Note ${noteIndex + 1}
+          Cutoff Arp Note ${noteIndex + 1}
           <select id="scaleChanceArpNote${noteIndex + 1}">
             ${getOptionMarkup(NOTE_RANGE, selectedNote)}
           </select>
@@ -76,11 +76,11 @@ function getClusterNoteMarkup() {
   return CLUSTER_NOTE_DEFAULTS
     .map((clusterNotes, clusterIndex) => `
       <fieldset class="cluster-fieldset" data-cluster-index="${clusterIndex + 1}">
-        <legend>Cluster ${clusterIndex + 1}</legend>
+        <legend>Cutoff Cluster ${clusterIndex + 1}</legend>
         ${clusterNotes
           .map((selectedNote, noteIndex) => `
             <label data-cluster-note-index="${noteIndex + 1}">
-              Note ${noteIndex + 1}
+              Cutoff Note ${noteIndex + 1}
               <select id="scaleChanceCluster${clusterIndex + 1}Note${noteIndex + 1}">
                 ${getOptionMarkup(NOTE_RANGE, selectedNote)}
               </select>
@@ -90,6 +90,18 @@ function getClusterNoteMarkup() {
       </fieldset>
     `)
     .join("");
+}
+
+function ensureCutoffArpReadout() {
+  const sourceReadoutGrid = document.querySelector(".source-readout-grid");
+
+  if (!sourceReadoutGrid || document.querySelector("#readoutCutoffArp")) {
+    return;
+  }
+
+  const readoutRow = document.createElement("div");
+  readoutRow.innerHTML = `<dt>Cutoff Arp</dt><dd id="readoutCutoffArp">Off — oscillator fixed at A3 / 220 Hz</dd>`;
+  sourceReadoutGrid.appendChild(readoutRow);
 }
 
 function injectScaleChancePanel() {
@@ -103,10 +115,10 @@ function injectScaleChancePanel() {
   scaleChancePanel.id = "scaleChancePanel";
   scaleChancePanel.className = "panel scale-chance-panel";
   scaleChancePanel.innerHTML = `
-    <h2>Scale Chance</h2>
-    <p class="panel-note">Controlled chance engine for rhythmic musical Cutoff / Brightness movement.</p>
+    <h2>Scale Chance — Cutoff Movement</h2>
+    <p class="panel-note">This engine turns note names into rhythmic Cutoff / Brightness targets. It does not change oscillator pitch; the oscillator remains fixed at A3 / 220 Hz.</p>
     <label>
-      Scale Chance
+      Cutoff Movement
       <select id="scaleChanceEnabled">
         <option value="off" selected>Off</option>
         <option value="on">On</option>
@@ -125,13 +137,13 @@ function injectScaleChancePanel() {
       </select>
     </label>
     <label>
-      Low Note
+      Low Cutoff Note
       <select id="scaleChanceLowNote">
         ${getOptionMarkup(NOTE_RANGE, "C2")}
       </select>
     </label>
     <label>
-      High Note
+      High Cutoff Note
       <select id="scaleChanceHighNote">
         ${getOptionMarkup(NOTE_RANGE, "C5")}
       </select>
@@ -141,15 +153,15 @@ function injectScaleChancePanel() {
       <input id="scaleChanceRandomness" type="range" min="0" max="100" value="50" />
     </label>
     <label>
-      Pitch Centre
+      Cutoff Note Centre
       <input id="scaleChancePitchCentre" type="range" min="0" max="100" value="50" />
     </label>
     <label>
-      Gate Length
+      Cutoff Gate Length
       <input id="scaleChanceNoteLength" type="range" min="50" max="1000" step="10" value="250" />
     </label>
     <label>
-      Note Gap
+      Cutoff Event Gap
       <input id="scaleChanceNoteGap" type="range" min="0" max="1000" step="10" value="150" />
     </label>
     <label>
@@ -160,10 +172,10 @@ function injectScaleChancePanel() {
       Repeat Chance
       <input id="scaleChanceRepeatChance" type="range" min="0" max="100" value="20" />
     </label>
-    <h3>AR Envelope</h3>
-    <p class="panel-note">Attack opens the event, Gate Length holds it, Release falls after the gate closes, and Note Gap waits before the next event.</p>
+    <h3>Cutoff AR Envelope</h3>
+    <p class="panel-note">Attack opens each cutoff event, Cutoff Gate Length holds it, Release falls after the gate closes, and Cutoff Event Gap waits before the next event.</p>
     <label>
-      AR Envelope
+      Cutoff AR Envelope
       <select id="scaleChanceArEnvelopeEnabled">
         <option value="off" selected>Off</option>
         <option value="on">On</option>
@@ -178,54 +190,54 @@ function injectScaleChancePanel() {
       <input id="scaleChanceArRelease" type="range" min="5" max="2000" step="5" value="180" />
     </label>
     <label>
-      Arp Mode
+      Cutoff Arp Mode
       <select id="scaleChanceArpMode">
         <option value="off" selected>Off</option>
         <option value="on">On</option>
       </select>
     </label>
     <label>
-      Arp Direction
+      Cutoff Arp Direction
       <select id="scaleChanceArpDirection">
         ${getValueLabelOptionMarkup(ARP_DIRECTIONS, "as-selected")}
       </select>
     </label>
     <label>
-      Arp Notes
+      Cutoff Arp Notes
       <select id="scaleChanceArpNoteCount">
         ${getOptionMarkup(ARP_NOTE_COUNTS, "4")}
       </select>
     </label>
     ${getArpNoteMarkup()}
-    <h3>Arp Clusters</h3>
-    <p class="panel-note">Cluster controls. Choose one cluster to edit; hidden clusters still play when active.</p>
+    <h3>Cutoff Arp Clusters</h3>
+    <p class="panel-note">Clusters group cutoff targets. Choose one cluster to edit; hidden clusters still drive Cutoff when active. They do not change oscillator pitch.</p>
     <label>
-      Cluster Mode
+      Cutoff Cluster Mode
       <select id="scaleChanceClusterMode">
         <option value="off" selected>Off</option>
         <option value="on">On</option>
       </select>
     </label>
     <label>
-      Cluster Count
+      Cutoff Cluster Count
       <select id="scaleChanceClusterCount">
         ${getOptionMarkup(CLUSTER_COUNTS, "2")}
       </select>
     </label>
     <label>
-      Cluster Size
+      Cutoff Cluster Size
       <select id="scaleChanceClusterSize">
         ${getOptionMarkup(CLUSTER_SIZES, "3")}
       </select>
     </label>
     <label>
-      Cluster View
+      Cutoff Cluster View
       <select id="scaleChanceClusterView">
         ${getLabelledNumberOptionMarkup(CLUSTER_COUNTS, "1", "Cluster")}
       </select>
     </label>
     <label>
-      Cluster Direction
+      Cutoff Cluster Direction
       <select id="scaleChanceClusterDirection">
         ${getValueLabelOptionMarkup(CLUSTER_DIRECTIONS, "as-selected")}
       </select>
@@ -313,7 +325,7 @@ function getArpSummaryText() {
     document.querySelector(`#scaleChanceArpNote${noteIndex + 1}`)?.value ?? "C2"
   );
 
-  return ` Arp mode ${arpMode.value}, direction ${getArpDirectionLabel()}, ${noteCount} notes: ${notes.join(" → ")}.`;
+  return ` Cutoff Arp mode ${arpMode.value}, direction ${getArpDirectionLabel()}, ${noteCount} cutoff targets: ${notes.join(" → ")}. Oscillator pitch remains fixed at A3 / 220 Hz.`;
 }
 
 function getArEnvelopeSummaryText() {
@@ -325,7 +337,7 @@ function getArEnvelopeSummaryText() {
     return "";
   }
 
-  return ` AR Envelope ${arEnabled.value}: attack ${attack.value} ms opens, Gate Length holds, release ${release.value} ms falls after the gate closes.`;
+  return ` Cutoff AR Envelope ${arEnabled.value}: attack ${attack.value} ms opens, Cutoff Gate Length holds, release ${release.value} ms falls after the gate closes.`;
 }
 
 function getClusterSummaryText() {
@@ -345,7 +357,29 @@ function getClusterSummaryText() {
     document.querySelector(`#scaleChanceCluster${view}Note${noteIndex + 1}`)?.value ?? "C2"
   );
 
-  return ` Arp Clusters: mode ${clusterMode.value}, ${count} clusters, ${size} notes each, direction ${getClusterDirectionLabel()}, editing Cluster ${view}: ${notes.join(" → ")}.`;
+  return ` Cutoff Arp clusters: mode ${clusterMode.value}, ${count} clusters, ${size} cutoff targets each, direction ${getClusterDirectionLabel()}, editing Cluster ${view}: ${notes.join(" → ")}.`;
+}
+
+function updateCutoffArpReadout() {
+  const readout = document.querySelector("#readoutCutoffArp");
+  const enabled = document.querySelector("#scaleChanceEnabled");
+  const arpMode = document.querySelector("#scaleChanceArpMode");
+
+  if (!readout || !enabled || !arpMode) {
+    return;
+  }
+
+  if (enabled.value !== "on") {
+    readout.textContent = "Off — oscillator fixed at A3 / 220 Hz";
+    return;
+  }
+
+  if (arpMode.value === "on") {
+    readout.textContent = "On — moves Cutoff only; oscillator fixed at A3 / 220 Hz";
+    return;
+  }
+
+  readout.textContent = "Arp Off — Cutoff chance may still move; oscillator fixed at A3 / 220 Hz";
 }
 
 function appendScaleChanceSummary() {
@@ -368,11 +402,13 @@ function appendScaleChanceSummary() {
 
   const existingSummary = patchSummaryText.textContent.replace(/ Scale Chance.*$/, "");
   const modeText = enabled.value === "on" ? "active" : "off";
-  patchSummaryText.textContent = `${existingSummary} Scale Chance is ${modeText}: ${root.value} ${scale.value}, range ${lowNote.value} to ${highNote.value}, randomness ${randomness.value}%, pitch centre ${pitchCentre.value}%, gate length ${gateLength.value} ms, note gap ${noteGap.value} ms, rest chance ${restChance.value}%, repeat chance ${repeatChance.value}%. Gate Length is the held part before release; Attack + Gate Length + Release is the approximate shaped event time.${getArEnvelopeSummaryText()}${getArpSummaryText()}${getClusterSummaryText()}`;
+  patchSummaryText.textContent = `${existingSummary} Scale Chance Cutoff movement is ${modeText}: ${root.value} ${scale.value}, cutoff-note range ${lowNote.value} to ${highNote.value}, randomness ${randomness.value}%, cutoff-note centre ${pitchCentre.value}%, cutoff gate length ${gateLength.value} ms, cutoff event gap ${noteGap.value} ms, rest chance ${restChance.value}%, repeat chance ${repeatChance.value}%. These note names select Cutoff / Brightness targets; they do not change oscillator pitch.${getArEnvelopeSummaryText()}${getArpSummaryText()}${getClusterSummaryText()}`;
+  updateCutoffArpReadout();
 }
 
 function initialiseScaleChancePanel() {
   injectScaleChancePanel();
+  ensureCutoffArpReadout();
   updateClusterControlVisibility();
 
   const controls = document.querySelectorAll("#scaleChancePanel select, #scaleChancePanel input");
