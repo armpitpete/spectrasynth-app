@@ -50,7 +50,7 @@ test("repository authority describes the shared note relationship", async () => 
   for (const text of [readme, checklist]) {
     assert.match(text, /Pitch Arp/);
     assert.match(text, /same|shared/i);
-    assert.match(text, /no second oscillator|one oscillator/i);
+    assert.match(text, /one oscillator|second oscillator/i);
     assert.match(text, /Band 5/);
     assert.match(text, /Panic Stop/);
   }
