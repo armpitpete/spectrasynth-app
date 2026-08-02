@@ -1,184 +1,104 @@
 # SpectraSynth App
 
-SpectraSynth is a browser-based MerrinLab instrument prototype for making a visible spectral sound path understandable before expanding it into a larger instrument.
+SpectraSynth is a browser-based MerrinLab instrument prototype for testing a visible musical sound path before expanding it into a larger instrument.
 
-## Live build
+## Current checkpoint
 
-https://armpitpete.github.io/spectrasynth-app/
+The repository is still at an **unaccepted v0.34 source checkpoint**.
 
-## Current source checkpoint
+The current protected work is Issue #142: connect oscillator pitch to the same musical note events that drive Cutoff / Brightness.
 
-**v0.34 — source readout layout**
+This work does not declare a stable release. It must be built and manually heard before any merge decision.
 
-This is the version displayed by current `main` source. The earlier README claim that v0.13 was the current checkpoint is retired.
+## Current audio path
 
-The repository has advanced through several experimental audio lanes. Version labels alone do not prove that every visible control or historical branch is accepted. The current authority below is derived from the active `src/main.js` path and must still be confirmed through the manual listening checklist before a new stable audio checkpoint is declared.
+One sawtooth oscillator and one white-noise source can feed `sourceMixGain`.
 
-The first v0.34 listening pass found an interface-clarity defect: the control called `Arp Mode` moved Cutoff / Brightness while the core oscillator remained fixed. v0.34 therefore remains a source checkpoint only until the corrected Cutoff Arp wording is built and manually retested.
+From that shared source bus:
 
-## Current accepted-source boundary
+- the core route passes through Cutoff, Resonance, Buttery Fuzz and the stereo output stage;
+- Band 5 `Voice` receives a parallel source-colour branch;
+- both routes reach the same protected master Output;
+- Bands 1–4 and 6–10 remain interface-only.
 
-### Sources
+Band 5 does not create a second note. Muting Band 5 removes only its parallel colour contribution.
 
-- one quiet sawtooth oscillator fixed at A3 / 220 Hz;
-- one quiet white-noise source;
-- both feed an explicit `sourceMixGain` bus;
+## Shared musical event stream
+
+Scale Chance owns one musical event sequence.
+
+Each non-rest event selects one note identity. That same event is used for:
+
+- the Cutoff / Brightness target;
+- the existing oscillator pitch when **Pitch Arp** is on;
+- the optional attack/release envelope.
+
+There is no second oscillator and no second arp counter.
+
+The oscillator starts with an A3 / 220 Hz fallback. When Pitch Arp is on and the first musical event arrives, that existing oscillator retunes to the selected note. Because both the dry route and Band 5 originate from the same oscillator, both follow the same pitch.
+
+A rest creates no new Cutoff target and no new pitch target.
+
+## Main controls
+
+- **Cutoff Movement** enables the musical event engine.
+- **Cutoff Arp Mode** chooses ordered arp notes instead of weighted chance notes.
+- **Pitch Arp** routes those same note events to the existing oscillator.
+- **Cutoff Arp Direction and Notes** define order and selected notes.
+- **Cutoff Cluster controls** group the same shared note events.
+- **Cutoff AR Envelope** shapes the existing source gain.
+- **Band 5 fader and Mute** control only the parallel Band 5 colour branch.
+- **Output** controls the protected master level.
+- **Panic Stop** silences output and stops active sources.
+
+When Pitch Arp is off, the oscillator intentionally returns to the A3 / 220 Hz fallback while Cutoff movement may continue.
+
+## Safety boundary
+
+- master gain remains capped;
 - sources start only after deliberate user action;
-- sources can run separately or together.
-
-### Core shaping
-
-- perceptual Cutoff / Brightness mapping from 120 Hz to 16 kHz;
-- Resonance control;
-- Buttery Fuzz with rounded waveshaping, dry/wet blend and post-fuzz filtering;
-- fixed centre plus left/right delayed stereo spread;
-- master Output clamped to a maximum gain of `0.35`.
-
-### Scale Chance and Cutoff Arp
-
-- Scale Chance generates note-labelled musical events and maps each selected note frequency to a Cutoff / Brightness target;
-- Cutoff Arp determines the order of those cutoff targets;
-- Cutoff Cluster controls group those cutoff targets;
-- the note names describe filter targets and do not change oscillator pitch;
-- the core oscillator remains fixed at A3 / 220 Hz;
-- a true Pitch Arp is not implemented in v0.34 and belongs to separate issue #142 after this clarity repair is accepted.
-
-### Safety
-
-- Panic Stop ramps output to silence and stops oscillator and noise;
-- normal use can restart after Panic Stop;
-- combined Noise, high Resonance and high Buttery Fuzz activates additional safety shaping;
-- the source readout shows whether extreme-state safety shaping is active.
-
-### Spectral Engine
-
-- ten visible spectral bands;
-- live analyser levels across the ten visible meters;
-- Band 5 `Voice` is the only audible spectral test band;
-- Band 5 uses a parallel 1200 Hz band-pass branch and can be level-adjusted or muted;
-- Bands 1–4 and 6–10 remain UI-only.
-
-### Source Readout
-
-The display reports:
-
-- Oscillator state;
-- Noise state;
-- Output percentage;
-- Cutoff frequency;
-- Resonance;
-- Buttery Fuzz;
-- extreme safety state;
-- Cutoff Arp state and the fixed A3 / 220 Hz oscillator contract.
-
-The readout is display-only and does not alter audio.
-
-## Visible or imported work that is not automatically accepted authority
-
-The source tree includes interface or experimental modules for areas such as:
-
-- Virtual Distance;
-- Two-Moon Movement;
-- Delay;
-- Reverb;
-- active-control wording;
-- stereo width;
-- spectral mute and band-audio experiments.
-
-Their presence in the repository does not by itself establish that each path is complete, currently connected, manually accepted or part of a stable release. Each audio path needs its own source review and listening evidence.
+- Stop Oscillator must stop the oscillator;
+- Stop Noise must stop noise;
+- Panic Stop must stop both sources and silence output;
+- Band 5 must not bypass Output safety;
+- no test should continue after a sudden loud jump, painful high-frequency sound or stuck source.
 
 ## Current non-capabilities
 
-Current core authority does not claim:
+The current checkpoint does not claim:
 
+- polyphony;
 - a full audible ten-band filter bank;
-- a feedback loop;
-- vocoder behaviour;
-- microphone input;
-- sensors;
-- audio behaviour for every spectral fader;
-- real self-oscillation;
-- oscillator pitch arpeggiation or a Pitch Arp;
-- MIDI;
+- MIDI input;
 - presets;
-- recording or export.
-
-Do not describe a visible placeholder or imported module as working audio unless the current source path and manual test prove it.
+- recording or export;
+- microphone input;
+- vocoder behaviour;
+- sensors;
+- feedback self-oscillation.
 
 ## Run locally
 
 ```bash
-npm install
-npm run dev
-```
-
-Run the focused source-contract checks:
-
-```bash
+npm ci
 npm test
-```
-
-Build the production output:
-
-```bash
 npm run build
-```
-
-Preview the production output:
-
-```bash
 npm run preview
 ```
 
-## Required listening check
+## Required manual test
 
 Use:
 
 `docs/manual-audio-test-checklist.md`
 
-The checklist covers:
+The exact candidate commit must be recorded with the result.
 
-- safe monitoring;
-- oscillator and noise paths;
-- Output and Panic Stop;
-- Cutoff and Resonance;
-- Buttery Fuzz;
-- extreme Noise safety shaping;
-- Band 5 level and mute behaviour;
-- analyser and source readout;
-- confirmation that the other bands remain UI-only;
-- confirmation that Cutoff Arp moves Cutoff / Brightness while oscillator pitch remains fixed at A3 / 220 Hz.
+## Threadkeeper gate
 
-## Acceptance rule
+The permitted result is one of:
 
-A source or build checkpoint is not stable merely because:
+- **ACCEPT** — the exact candidate produces one musically linked oscillator note, Cutoff follows the same event stream, Band 5 remains only a colour branch, and all source-stop safety checks pass.
+- **CORRECTIONS REQUIRED** — any fixed unrelated note remains, a second sequence appears, Stop Oscillator or Panic Stop fails, Band 5 duplicates or traps a path, or the interface disagrees with the sound.
 
-- it builds;
-- controls are visible;
-- a version label changed;
-- an automated check passes;
-- an old PR called it stable.
-
-A stable audio checkpoint requires:
-
-1. exact commit identity;
-2. successful production build;
-3. successful focused contract tests;
-4. manual listening against the current checklist;
-5. safe Output and Panic Stop proof;
-6. no unexpected audio from UI-only controls;
-7. clear agreement between Cutoff Arp wording and the fixed-pitch sound;
-8. a short acceptance record stating what was heard and what remains unimplemented.
-
-## Immediate gate
-
-Build and manually test the exact corrected Issue #141 head. Then either:
-
-- accept the Cutoff Arp clarity repair and record v0.34 as the corrected source checkpoint ready for the next protected decision; or
-- list exact remaining defects and keep v0.34 as an unaccepted source checkpoint.
-
-PR #138 remains draft and unmerged. Issue #142 must not begin until Issue #141 is accepted.
-
-## Stop rule
-
-Do not add Pitch Arp, more spectral bands, feedback, microphone, vocoder, MIDI, presets, effects or sensor behaviour until the Cutoff Arp clarity repair is manually tested and its accepted boundary is recorded.
+PR #138 and PR #143 remain draft and unmerged. Issue #142 must also stop before merge. No deployment or publication is authorised.
