@@ -318,7 +318,7 @@ function applyCutoffTargetForMidiNote(midiNote) {
 
   previousMidiNote = midiNote;
   previousCutoffValue = cutoffValue;
-  lastChosenLabel = `${getNoteLabelFromMidi(midiNote)} / ${Math.round(frequency)} Hz`;
+  lastChosenLabel = `${getNoteLabelFromMidi(midiNote)} maps to ${Math.round(frequency)} Hz Cutoff`;
 
   isScaleChanceApplyingCutoff = true;
   cutoffSlider.value = String(cutoffValue);
@@ -334,12 +334,12 @@ function appendScaleChanceEngineSummary(extraText = "") {
   }
 
   const directionText = getArpDirection().replaceAll("-", " / ");
-  const arpText = isArpModeOn() ? ` Arp Mode is on: ${directionText}.` : " Arp Mode is off.";
+  const arpText = isArpModeOn() ? ` Cutoff Arp is on: ${directionText}.` : " Cutoff Arp is off.";
   const clusterText = isClusterModeOn()
-    ? ` Cluster Mode is on: cluster ${(clusterIndex % getClusterCount()) + 1}, ${getClusterSize()} notes per cluster, ${getClusterDirection().replaceAll("-", " / ")}.`
-    : " Cluster Mode is off.";
-  const existingSummary = patchSummaryText.textContent.replace(/ Scale Chance engine:.*$/, "");
-  patchSummaryText.textContent = `${existingSummary} Scale Chance engine: rhythmic musical Cutoff movement is ${isScaleChanceOn() ? "active" : "off"}.${arpText}${clusterText} Last target: ${lastChosenLabel}. ${extraText}`.trim();
+    ? ` Cutoff Cluster Mode is on: cluster ${(clusterIndex % getClusterCount()) + 1}, ${getClusterSize()} cutoff targets per cluster, ${getClusterDirection().replaceAll("-", " / ")}.`
+    : " Cutoff Cluster Mode is off.";
+  const existingSummary = patchSummaryText.textContent.replace(/ Scale Chance Cutoff engine:.*$/, "");
+  patchSummaryText.textContent = `${existingSummary} Scale Chance Cutoff engine: rhythmic Cutoff / Brightness movement is ${isScaleChanceOn() ? "active" : "off"}.${arpText}${clusterText} Last cutoff target: ${lastChosenLabel}. Oscillator pitch remains fixed at A3 / 220 Hz. ${extraText}`.trim();
 }
 
 function isScaleChanceOn() {
