@@ -1,6 +1,6 @@
 # SpectraSynth manual audio test checklist
 
-Use this checklist before accepting any change to the audio path, source routing, Cutoff, Resonance, Buttery Fuzz, spectral Band 5, mute behaviour, analyser meters, stereo output, safety shaping or Panic Stop.
+Use this checklist before accepting any change to the audio path, source routing, Cutoff, Resonance, Buttery Fuzz, spectral Band 5, mute behaviour, analyser meters, stereo output, safety shaping, Cutoff Arp wording or Panic Stop.
 
 Automated source and build checks are not enough. Audio behaviour must be heard at a safe monitoring level.
 
@@ -14,17 +14,20 @@ Automated source and build checks are not enough. Audio behaviour must be heard 
 
 ## Build and page start
 
+- [ ] Run `npm test` successfully.
 - [ ] Run `npm run build` successfully.
 - [ ] Open the current build in a supported desktop browser.
 - [ ] Confirm no audio starts before a deliberate button press.
 - [ ] Confirm the version display reads `v0.34 source readout layout` unless the tested change intentionally advances it.
 - [ ] Confirm the Source Readout begins with Oscillator Off and Noise Off.
+- [ ] Confirm the Source Readout states that the oscillator is fixed at A3 / 220 Hz.
 
 ## Core source path
 
 - [ ] Start Oscillator.
 - [ ] Confirm one quiet sawtooth source is audible.
 - [ ] Confirm the Oscillator readout changes to On.
+- [ ] Confirm the audible oscillator is one fixed A3 / 220 Hz source before Cutoff movement is enabled.
 - [ ] Stop Oscillator and confirm it becomes silent.
 - [ ] Start Noise.
 - [ ] Confirm one quiet white-noise source is audible.
@@ -54,6 +57,29 @@ Automated source and build checks are not enough. Audio behaviour must be heard 
 - [ ] Raise Resonance gradually and confirm filter focus increases.
 - [ ] Confirm Resonance changes do not produce an uncontrolled level jump.
 - [ ] Return Resonance to a moderate setting and confirm the path remains stable.
+
+## Cutoff Arp clarity
+
+Current authority:
+
+- Scale Chance turns note names into Cutoff / Brightness targets.
+- Cutoff Arp orders those cutoff targets.
+- Cutoff Arp does not change oscillator pitch.
+- The core oscillator remains fixed at A3 / 220 Hz.
+- A true Pitch Arp is not implemented in this checkpoint.
+
+Checks:
+
+- [ ] Start Oscillator with Noise off and establish the fixed A3 / 220 Hz source.
+- [ ] Confirm the panel heading and controls say `Cutoff Arp`, not a generic pitch-changing Arp.
+- [ ] Confirm the panel states that note names select Cutoff / Brightness targets and do not change oscillator pitch.
+- [ ] Turn Cutoff Movement on and turn Cutoff Arp Mode on.
+- [ ] Confirm the sound becomes rhythmically darker and brighter as cutoff targets change.
+- [ ] Confirm the core oscillator pitch remains fixed at A3 / 220 Hz throughout.
+- [ ] Confirm the Cutoff Arp readout says that Cutoff moves while oscillator pitch remains fixed.
+- [ ] Change Cutoff Arp direction and selected notes; confirm the filter movement changes without implying that the oscillator is playing those pitches.
+- [ ] Confirm the Plain Patch Summary says `Cutoff Arp` and states that oscillator pitch remains fixed at A3 / 220 Hz.
+- [ ] Turn Cutoff Arp Mode off and confirm no control or status text claims that pitch arpeggiation occurred.
 
 ## Buttery Fuzz
 
@@ -96,7 +122,7 @@ Checks:
 - [ ] Start Oscillator and confirm analyser meters respond.
 - [ ] Start Noise and confirm the meter pattern changes.
 - [ ] Stop all sources and confirm meters fall toward silence.
-- [ ] Confirm Oscillator, Noise, Output, Cutoff, Resonance, Buttery Fuzz and Extreme safety readouts follow the current state.
+- [ ] Confirm Oscillator, Noise, Output, Cutoff, Resonance, Buttery Fuzz, Extreme safety and Cutoff Arp readouts follow the current state.
 - [ ] Confirm the Source Readout panel itself does not change audio.
 
 ## Current non-capabilities
@@ -109,7 +135,8 @@ Confirm the tested build does not falsely claim these are active:
 - [ ] microphone input;
 - [ ] sensors;
 - [ ] all-band fader audio behaviour;
-- [ ] fake self-oscillation.
+- [ ] fake self-oscillation;
+- [ ] oscillator pitch arpeggiation or Pitch Arp.
 
 Controls or modules displayed for future work must remain clearly distinguishable from accepted audio behaviour.
 
@@ -119,11 +146,13 @@ Record this in the PR or issue:
 
 ```text
 Manual audio test
+- Contract tests passed: yes/no
 - Build passed: yes/no
 - Oscillator path: pass/fail
 - Noise path: pass/fail
 - Output and Panic Stop: pass/fail
 - Cutoff and Resonance: pass/fail
+- Cutoff Arp clarity and fixed A3 / 220 Hz pitch: pass/fail
 - Buttery Fuzz: pass/fail
 - Extreme Noise safety shaping: pass/fail/not applicable
 - Band 5 fader and mute: pass/fail/not applicable
@@ -135,7 +164,7 @@ Manual audio test
 
 ## Stop rule
 
-Do not merge an audio-path change if:
+Do not merge an audio-path or interface-authority change if:
 
 - the core source path stops making sound;
 - Panic Stop does not silence all active sources;
@@ -143,5 +172,7 @@ Do not merge an audio-path change if:
 - Band 5 mute/unmute does not restore exactly one path;
 - an UI-only band unexpectedly changes audio;
 - Extreme Noise safety shaping fails under the combined high-risk state;
+- Cutoff Arp wording implies oscillator pitch movement;
+- the oscillator changes pitch in the Issue #141 clarity repair;
 - a sudden loud jump or stuck source occurs;
 - the exact tested commit is not recorded.
