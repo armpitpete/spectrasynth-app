@@ -4,11 +4,13 @@ SpectraSynth is a browser-based MerrinLab instrument prototype for testing a vis
 
 ## Current checkpoint
 
-The repository is still at an **unaccepted v0.34 source checkpoint**.
+The corrected v0.34 candidate has passed its required automated checks and owner hands-on listening review.
 
-The current protected work is Issue #142: connect oscillator pitch to the same musical note events that drive Cutoff / Brightness.
+Accepted audio candidate:
 
-This work does not declare a stable release. It must be built and manually heard before any merge decision.
+`4987e2544bd118d89ef339b725c8c35b4e83267d`
+
+The candidate is accepted for protected merge review, but it is not yet the stable repository checkpoint because it has not been merged into `main`.
 
 ## Current audio path
 
@@ -86,19 +88,18 @@ npm run build
 npm run preview
 ```
 
-## Required manual test
+## Acceptance evidence
 
-Use:
+Use `docs/manual-audio-test-checklist.md` for the listening contract and recorded result.
 
-`docs/manual-audio-test-checklist.md`
-
-The exact candidate commit must be recorded with the result.
+The exact accepted audio candidate was built, automatically verified and manually accepted. Any later runtime change requires a new exact-head listening decision. Documentation-only reconciliation may inherit the accepted audio evidence only when comparison proves that the runtime tree is unchanged.
 
 ## Threadkeeper gate
 
-The permitted result is one of:
+PR #144 is the single protected review lane against `main`.
 
-- **ACCEPT** — the exact candidate produces one musically linked oscillator note, Cutoff follows the same event stream, Band 5 remains only a colour branch, and all source-stop safety checks pass.
-- **CORRECTIONS REQUIRED** — any fixed unrelated note remains, a second sequence appears, Stop Oscillator or Panic Stop fails, Band 5 duplicates or traps a path, or the interface disagrees with the sound.
+PR #138 and PR #143 are superseded draft units and are not authorised for standalone merge.
 
-PR #138 and PR #143 remain draft and unmerged. Issue #142 must also stop before merge. No deployment or publication is authorised.
+Do not merge PR #144 if its accepted runtime content changes, verification fails, a review blocker appears or the musical boundary above is altered.
+
+No merge, deployment or publication is authorised yet.
