@@ -4,39 +4,54 @@ import { readFile } from "node:fs/promises";
 
 const read = (path) => readFile(new URL(`../${path}`, import.meta.url), "utf8");
 
-test("the core oscillator remains a fixed A3 / 220 Hz source", async () => {
+test("one existing oscillator feeds both the dry and Band 5 routes", async () => {
   const mainSource = await read("src/main.js");
+  const oscillatorCreations = mainSource.match(/context\.createOscillator\(\)/g) ?? [];
 
-  assert.match(mainSource, /oscillator\.type = "sawtooth";/);
-  assert.match(
-    mainSource,
-    /oscillator\.frequency\.setValueAtTime\(220, context\.currentTime\);/
-  );
+  assert.equal(oscillatorCreations.length, 1);
+  assert.match(mainSource, /oscillator\.connect\(oscillatorGain\);/);
+  assert.match(mainSource, /oscillatorGain\.connect\(sourceMixGain\);/);
+  assert.match(mainSource, /sourceMixGain\.connect\(toneFilter\);/);
+  assert.match(mainSource, /sourceMixGain\.connect\(spectralBand5Filter\);/);
 });
 
-test("the interface names the current feature Cutoff Arp and denies pitch automation", async () => {
-  const panelSource = await read("src/scale-chance-panel.js");
+test("Pitch Arp retunes that oscillator from the Cutoff event stream", async () => {
+  const pitchSource = await read("src/scale-chance-ar-envelope.js");
   const cutoffSource = await read("src/scale-chance-cutoff.js");
 
-  assert.match(panelSource, /Cutoff Arp Mode/);
-  assert.match(panelSource, /moves Cutoff only; oscillator fixed at A3 \/ 220 Hz/);
-  assert.match(panelSource, /It does not change oscillator pitch/);
-  assert.doesNotMatch(panelSource, />\s*Arp Mode\s*</);
+  assert.doesNotMatch(pitchSource, /createOscillator\(/);
+  assert.match(pitchSource, /const trackedOscillators = new Set\(\);/);
+  assert.match(pitchSource, /rememberOscillator\(sourceNode\);/);
+  assert.match(pitchSource, /document\.addEventListener\("spectraSynthScaleChanceNote", triggerPitchArp\);/);
+  assert.match(pitchSource, /oscillatorNode\.frequency\.setTargetAtTime\(/);
+  assert.match(pitchSource, /Pitch Arp retunes the existing oscillator/);
 
-  assert.match(cutoffSource, /Cutoff Arp is on/);
-  assert.match(cutoffSource, /Oscillator pitch remains fixed at A3 \/ 220 Hz/);
-  assert.match(cutoffSource, /maps to .* Hz Cutoff/);
-  assert.doesNotMatch(cutoffSource, / Arp Mode is on/);
+  assert.match(cutoffSource, /document\.dispatchEvent\(new CustomEvent\("spectraSynthScaleChanceNote"/);
+  assert.match(cutoffSource, /applyCutoffTargetForMidiNote\(midiNote\);\s+dispatchScaleChanceNoteEvent\(noteLength\);/s);
+  assert.match(cutoffSource, /if \(midiNote === null\) \{\s+lastChosenLabel = "rest";/s);
 });
 
-test("repository authority and listening checks state the same contract", async () => {
+test("Pitch Arp preserves the A3 fallback and source stop safety", async () => {
+  const mainSource = await read("src/main.js");
+  const pitchSource = await read("src/scale-chance-ar-envelope.js");
+
+  assert.match(mainSource, /oscillator\.frequency\.setValueAtTime\(220, context\.currentTime\);/);
+  assert.match(mainSource, /oscillator\.stop\(stopTime\);/);
+  assert.match(mainSource, /stopOscillator\(\{ immediate: true, updateSummary: false \}\);/);
+  assert.match(pitchSource, /DEFAULT_OSCILLATOR_FREQUENCY = 220/);
+  assert.match(pitchSource, /sourceNode\.addEventListener\("ended"/);
+  assert.match(pitchSource, /trackedOscillators\.delete\(sourceNode\);/);
+});
+
+test("repository authority describes the shared note relationship", async () => {
   const readme = await read("README.md");
   const checklist = await read("docs/manual-audio-test-checklist.md");
 
   for (const text of [readme, checklist]) {
-    assert.match(text, /Cutoff Arp/);
-    assert.match(text, /A3/);
-    assert.match(text, /220 Hz/);
-    assert.match(text, /does not change oscillator pitch|does not change the oscillator pitch|remains fixed/i);
+    assert.match(text, /Pitch Arp/);
+    assert.match(text, /same|shared/i);
+    assert.match(text, /no second oscillator|one oscillator/i);
+    assert.match(text, /Band 5/);
+    assert.match(text, /Panic Stop/);
   }
 });
