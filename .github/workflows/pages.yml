@@ -28,10 +28,17 @@ jobs:
           fetch-depth: 1
       - name: Verify exact candidate
         shell: bash
+        env:
+          EXPECTED_SHA: ${{ inputs.commit_sha }}
         run: |
+          if [[ ! "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "commit_sha must be an exact 40-character lowercase hexadecimal commit SHA" >&2
+            exit 1
+          fi
+
           actual_sha="$(git rev-parse HEAD)"
-          if [ "$actual_sha" != "${{ inputs.commit_sha }}" ]; then
-            echo "Expected ${{ inputs.commit_sha }} but checked out $actual_sha" >&2
+          if [ "$actual_sha" != "$EXPECTED_SHA" ]; then
+            echo "Expected $EXPECTED_SHA but checked out $actual_sha" >&2
             exit 1
           fi
       - name: Setup Node
@@ -47,7 +54,9 @@ jobs:
         run: npm run build
       - name: Record deployed commit
         shell: bash
-        run: printf '%s\n' '${{ inputs.commit_sha }}' > dist/DEPLOYED_COMMIT.txt
+        env:
+          EXPECTED_SHA: ${{ inputs.commit_sha }}
+        run: printf '%s\n' "$EXPECTED_SHA" > dist/DEPLOYED_COMMIT.txt
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload artifact
