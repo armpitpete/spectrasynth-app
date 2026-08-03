@@ -17,12 +17,14 @@ test("Pages deployment cannot run from an ordinary push", async () => {
   assert.match(workflow, /required:\s*true/);
 });
 
-test("Pages deployment checks out and verifies the exact authorised SHA", async () => {
+test("Pages deployment checks out and verifies one exact commit SHA", async () => {
   const workflow = await readWorkflow();
 
   assert.match(workflow, /ref:\s*\$\{\{ inputs\.commit_sha \}\}/);
+  assert.match(workflow, /EXPECTED_SHA:\s*\$\{\{ inputs\.commit_sha \}\}/);
+  assert.match(workflow, /\^\[0-9a-f\]\{40\}\$/);
   assert.match(workflow, /git rev-parse HEAD/);
-  assert.match(workflow, /actual_sha.*inputs\.commit_sha/s);
+  assert.match(workflow, /actual_sha.*EXPECTED_SHA/s);
 });
 
 test("Pages deployment verifies the candidate before artifact upload", async () => {
