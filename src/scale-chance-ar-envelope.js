@@ -3,6 +3,10 @@ const OSCILLATOR_BASE_GAIN = 0.08;
 const NOISE_BASE_GAIN = 0.05;
 const DEFAULT_OSCILLATOR_FREQUENCY = 220;
 const PITCH_TRANSITION_SECONDS = 0.012;
+const PITCH_MIN_FREQUENCY = 20;
+const PITCH_MAX_FREQUENCY = 16000;
+const MIN_PITCH_OCTAVE_OFFSET = -2;
+const MAX_PITCH_OCTAVE_OFFSET = 2;
 
 const NOTE_TO_SEMITONE = {
   C: 0,
@@ -42,6 +46,42 @@ function isArEnvelopeOn() {
 
 function isPitchArpOn() {
   return getControl("scaleChancePitchArpEnabled")?.value !== "off";
+}
+
+function getPitchOctaveOffset() {
+  return clamp(
+    Math.round(Number(getControl("scaleChancePitchOctave")?.value ?? 0)),
+    MIN_PITCH_OCTAVE_OFFSET,
+    MAX_PITCH_OCTAVE_OFFSET
+  );
+}
+
+function getPitchOctaveLabel(octaveOffset = getPitchOctaveOffset()) {
+  if (octaveOffset === 0) {
+    return "0 — same note";
+  }
+
+  const signedOffset = octaveOffset > 0 ? `+${octaveOffset}` : String(octaveOffset);
+  const unit = Math.abs(octaveOffset) === 1 ? "octave" : "octaves";
+  return `${signedOffset} ${unit}`;
+}
+
+function getPitchTargetFromMusicalTarget(musicalTarget) {
+  if (!musicalTarget) {
+    return null;
+  }
+
+  const octaveOffset = getPitchOctaveOffset();
+  const requestedFrequency = musicalTarget.frequency * Math.pow(2, octaveOffset);
+  const frequency = clamp(requestedFrequency, PITCH_MIN_FREQUENCY, PITCH_MAX_FREQUENCY);
+
+  return {
+    ...musicalTarget,
+    octaveOffset,
+    requestedFrequency,
+    frequency,
+    isLimited: Math.abs(frequency - requestedFrequency) > Number.EPSILON,
+  };
 }
 
 function getAttackMs() {
@@ -132,9 +172,10 @@ function setOscillatorFrequency(oscillatorNode, frequency, immediate = false) {
 }
 
 function applyCurrentPitchTarget(oscillatorNode, immediate = false) {
-  const targetFrequency = isPitchArpOn() && latestMusicalTarget
-    ? latestMusicalTarget.frequency
-    : DEFAULT_OSCILLATOR_FREQUENCY;
+  const pitchTarget = isPitchArpOn()
+    ? getPitchTargetFromMusicalTarget(latestMusicalTarget)
+    : null;
+  const targetFrequency = pitchTarget?.frequency ?? DEFAULT_OSCILLATOR_FREQUENCY;
 
   setOscillatorFrequency(oscillatorNode, targetFrequency, immediate);
 }
@@ -275,10 +316,11 @@ function triggerPitchArp(event) {
   }
 
   latestMusicalTarget = musicalTarget;
+  const pitchTarget = getPitchTargetFromMusicalTarget(musicalTarget);
 
-  if (isPitchArpOn()) {
+  if (isPitchArpOn() && pitchTarget) {
     trackedOscillators.forEach((oscillatorNode) => {
-      setOscillatorFrequency(oscillatorNode, musicalTarget.frequency);
+      setOscillatorFrequency(oscillatorNode, pitchTarget.frequency);
     });
   }
 
@@ -302,13 +344,26 @@ function ensurePitchArpControl() {
     </select>
   `;
 
+  const pitchOctaveLabel = document.createElement("label");
+  pitchOctaveLabel.innerHTML = `
+    Pitch Octave
+    <select id="scaleChancePitchOctave">
+      <option value="-2">-2 octaves</option>
+      <option value="-1">-1 octave</option>
+      <option value="0" selected>0 — same note</option>
+      <option value="1">+1 octave</option>
+      <option value="2">+2 octaves</option>
+    </select>
+  `;
+
   const pitchArpNote = document.createElement("p");
   pitchArpNote.className = "panel-note pitch-arp-note";
   pitchArpNote.textContent =
-    "Pitch Arp retunes the existing oscillator from the same note event that drives Cutoff. It creates no second oscillator or sequencer.";
+    "Pitch Arp retunes the existing oscillator from the same note event that drives Cutoff. Pitch Octave changes only that oscillator destination; it creates no second oscillator or sequencer.";
 
   cutoffArpLabel.insertAdjacentElement("afterend", pitchArpLabel);
-  pitchArpLabel.insertAdjacentElement("afterend", pitchArpNote);
+  pitchArpLabel.insertAdjacentElement("afterend", pitchOctaveLabel);
+  pitchOctaveLabel.insertAdjacentElement("afterend", pitchArpNote);
 }
 
 function ensurePitchArpReadout() {
@@ -329,10 +384,13 @@ function getPitchArpReadoutText() {
   }
 
   if (!latestMusicalTarget) {
-    return "On — waiting for first shared note";
+    return `On — ${getPitchOctaveLabel()} — waiting for first shared note`;
   }
 
-  return `On — ${latestMusicalTarget.noteLabel} / ${latestMusicalTarget.frequency.toFixed(2)} Hz from shared event`;
+  const pitchTarget = getPitchTargetFromMusicalTarget(latestMusicalTarget);
+  const limitText = pitchTarget?.isLimited ? " — safety-limited" : "";
+
+  return `On — ${latestMusicalTarget.noteLabel}, ${getPitchOctaveLabel(pitchTarget?.octaveOffset)} → ${pitchTarget?.frequency.toFixed(2)} Hz${limitText}`;
 }
 
 function getCutoffArpReadoutText() {
@@ -364,7 +422,7 @@ function updatePanelAuthorityWording() {
   const pitchArpNote = document.querySelector("#scaleChancePanel .pitch-arp-note");
   if (pitchArpNote) {
     pitchArpNote.textContent =
-      "Pitch Arp uses the exact same note, order, timing and rests as Cutoff movement. Band 5 and the dry route therefore follow one oscillator pitch.";
+      "Pitch Arp uses the same event identity, order, timing and rests as Cutoff movement. Pitch Octave transposes only the oscillator destination. Band 5 and the dry route still follow one oscillator pitch.";
   }
 }
 
@@ -388,10 +446,11 @@ function updatePatchSummaryAuthority() {
     return;
   }
 
+  const pitchTarget = getPitchTargetFromMusicalTarget(latestMusicalTarget);
   const pitchState = isPitchArpOn()
-    ? latestMusicalTarget
-      ? `on and following ${latestMusicalTarget.noteLabel} at ${latestMusicalTarget.frequency.toFixed(2)} Hz`
-      : "on and waiting for the first shared note event"
+    ? pitchTarget
+      ? `on; ${latestMusicalTarget.noteLabel} with ${getPitchOctaveLabel(pitchTarget.octaveOffset)} reaches ${pitchTarget.frequency.toFixed(2)} Hz${pitchTarget.isLimited ? " after the safety limit" : ""}`
+      : `on with ${getPitchOctaveLabel()} and waiting for the first shared note event`
     : "off; the oscillator uses its A3 / 220 Hz fallback";
 
   const correctedText = patchSummaryText.textContent
@@ -477,8 +536,11 @@ function initialiseScaleChanceArEnvelope() {
   });
 
   const pitchArpControl = getControl("scaleChancePitchArpEnabled");
+  const pitchOctaveControl = getControl("scaleChancePitchOctave");
   pitchArpControl?.addEventListener("input", handlePitchArpControlChange);
   pitchArpControl?.addEventListener("change", handlePitchArpControlChange);
+  pitchOctaveControl?.addEventListener("input", handlePitchArpControlChange);
+  pitchOctaveControl?.addEventListener("change", handlePitchArpControlChange);
 
   document.querySelectorAll("#scaleChancePanel select, #scaleChancePanel input").forEach((control) => {
     control.addEventListener("input", () => requestAnimationFrame(updatePitchArpAuthority));
