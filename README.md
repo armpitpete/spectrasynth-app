@@ -22,9 +22,11 @@ Accepted public deployment commit:
 
 `2da1ea07801ce3b0d461ed98910720c66df799a0`
 
-Current secured `main`:
+Secured code-and-build checkpoint:
 
 `4007537cf085b0487ee6b973f073e698046b758e`
+
+The checkpoint above is the latest commit that changed dependencies or governance workflows. Later documentation-only reconciliation commits may advance the repository head without changing the accepted audio, generated application assets or public runtime.
 
 The public v0.34 deployment was completed by Pages run `30885076017` and accepted by owner hands-on smoke testing on 4 August 2026.
 
@@ -121,7 +123,7 @@ The dependency finding and repair are recorded in:
 
 `docs/dependency-security-audit-2026-08-04.md`
 
-The exact audio candidate was built, automatically verified and manually accepted. Subsequent accepted changes did not alter runtime audio or interface files. The secured `main` build produced the same public CSS and JavaScript asset names as the accepted v0.34 deployment.
+The exact audio candidate was built, automatically verified and manually accepted. Subsequent accepted changes did not alter runtime audio or interface files. The secured code-and-build checkpoint produced the same public CSS and JavaScript asset names as the accepted v0.34 deployment.
 
 Any later runtime change requires a new exact-head listening decision.
 
@@ -133,7 +135,7 @@ The accepted public site is:
 
 Pages deployment is manual-only. A deployment requires an exact 40-character commit SHA, verifies the checked-out SHA, installs locked dependencies, blocks high-severity audit findings, runs tests and builds before artifact upload.
 
-Current `main` has not been redeployed after the dependency-security repair. No future merge, deployment or publication is authorised by this README.
+The secured code-and-build checkpoint and later README-only reconciliation commits have not been redeployed. No future merge, deployment or publication is authorised by this README.
 
 ## Threadkeeper record
 
@@ -142,6 +144,6 @@ Current `main` has not been redeployed after the dependency-security repair. No 
 - PR #149 made Pages deployment manual-only and exact-SHA controlled.
 - Pages run `30885076017` deployed commit `2da1ea07801ce3b0d461ed98910720c66df799a0`; the public smoke test was accepted and Issue #150 closed.
 - PR #152 repaired the build-time PostCSS dependency chain and added blocking audit gates; Issue #151 closed.
-- Issue #153 tracks this README-only state reconciliation.
+- README authority records distinguish the secured code-and-build checkpoint from later documentation-only repository heads.
 
-The next product feature must start from current secured `main` and receive its own bounded issue, implementation evidence, protected review and any required hands-on audio acceptance.
+The next product feature must start from the latest repository head and receive its own bounded issue, implementation evidence, protected review and any required hands-on audio acceptance.
