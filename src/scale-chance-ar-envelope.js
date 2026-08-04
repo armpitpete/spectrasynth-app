@@ -74,14 +74,32 @@ function getPitchTargetFromMusicalTarget(musicalTarget) {
   const octaveOffset = getPitchOctaveOffset();
   const requestedFrequency = musicalTarget.frequency * Math.pow(2, octaveOffset);
   const frequency = clamp(requestedFrequency, PITCH_MIN_FREQUENCY, PITCH_MAX_FREQUENCY);
+  const limitReason = requestedFrequency < PITCH_MIN_FREQUENCY
+    ? "floor"
+    : requestedFrequency > PITCH_MAX_FREQUENCY
+      ? "ceiling"
+      : null;
 
   return {
     ...musicalTarget,
     octaveOffset,
     requestedFrequency,
     frequency,
-    isLimited: Math.abs(frequency - requestedFrequency) > Number.EPSILON,
+    limitReason,
+    isLimited: limitReason !== null,
   };
+}
+
+function getPitchLimitText(pitchTarget) {
+  if (pitchTarget?.limitReason === "floor") {
+    return ` — limited to ${PITCH_MIN_FREQUENCY} Hz floor`;
+  }
+
+  if (pitchTarget?.limitReason === "ceiling") {
+    return ` — limited to ${PITCH_MAX_FREQUENCY} Hz ceiling`;
+  }
+
+  return "";
 }
 
 function getAttackMs() {
@@ -388,9 +406,8 @@ function getPitchArpReadoutText() {
   }
 
   const pitchTarget = getPitchTargetFromMusicalTarget(latestMusicalTarget);
-  const limitText = pitchTarget?.isLimited ? " — safety-limited" : "";
 
-  return `On — ${latestMusicalTarget.noteLabel}, ${getPitchOctaveLabel(pitchTarget?.octaveOffset)} → ${pitchTarget?.frequency.toFixed(2)} Hz${limitText}`;
+  return `On — ${latestMusicalTarget.noteLabel}, ${getPitchOctaveLabel(pitchTarget?.octaveOffset)} → ${pitchTarget?.frequency.toFixed(2)} Hz${getPitchLimitText(pitchTarget)}`;
 }
 
 function getCutoffArpReadoutText() {
@@ -449,7 +466,7 @@ function updatePatchSummaryAuthority() {
   const pitchTarget = getPitchTargetFromMusicalTarget(latestMusicalTarget);
   const pitchState = isPitchArpOn()
     ? pitchTarget
-      ? `on; ${latestMusicalTarget.noteLabel} with ${getPitchOctaveLabel(pitchTarget.octaveOffset)} reaches ${pitchTarget.frequency.toFixed(2)} Hz${pitchTarget.isLimited ? " after the safety limit" : ""}`
+      ? `on; ${latestMusicalTarget.noteLabel} with ${getPitchOctaveLabel(pitchTarget.octaveOffset)} reaches ${pitchTarget.frequency.toFixed(2)} Hz${getPitchLimitText(pitchTarget)}`
       : `on with ${getPitchOctaveLabel()} and waiting for the first shared note event`
     : "off; the oscillator uses its A3 / 220 Hz fallback";
 

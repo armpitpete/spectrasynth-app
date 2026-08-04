@@ -33,9 +33,12 @@ test("Pitch Octave preserves fallback, live retuning and frequency safety", asyn
   assert.match(pitchSource, /PITCH_MIN_FREQUENCY = 20/);
   assert.match(pitchSource, /PITCH_MAX_FREQUENCY = 16000/);
   assert.match(pitchSource, /frequency = clamp\(requestedFrequency, PITCH_MIN_FREQUENCY, PITCH_MAX_FREQUENCY\)/);
+  assert.match(pitchSource, /limitReason = requestedFrequency < PITCH_MIN_FREQUENCY/);
+  assert.match(pitchSource, /requestedFrequency > PITCH_MAX_FREQUENCY/);
+  assert.match(pitchSource, /limited to \${PITCH_MIN_FREQUENCY} Hz floor/);
+  assert.match(pitchSource, /limited to \${PITCH_MAX_FREQUENCY} Hz ceiling/);
   assert.match(pitchSource, /pitchOctaveControl\?\.addEventListener\("input", handlePitchArpControlChange\)/);
   assert.match(pitchSource, /applyCurrentPitchTarget\(oscillatorNode\)/);
-  assert.match(pitchSource, /safety-limited/);
 });
 
 test("candidate checklist covers musical relationship and safety acceptance", async () => {
@@ -46,6 +49,8 @@ test("candidate checklist covers musical relationship and safety acceptance", as
     "-2 octaves",
     "0 — same note",
     "+2 octaves",
+    "20 Hz floor",
+    "16000 Hz ceiling",
     "Rest Chance",
     "Band 5",
     "Output",

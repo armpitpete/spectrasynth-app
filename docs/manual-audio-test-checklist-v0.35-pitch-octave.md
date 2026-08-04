@@ -32,12 +32,13 @@ Record the exact tested commit before listening.
 - Select **-2 octaves**.
 - Confirm the oscillator moves two octaves lower while Cutoff keeps the same movement pattern and timing.
 - Confirm there is no second sequence, drift or extra note underneath.
+- Select C1 as a shared note and confirm the readout names the **20 Hz floor** when the requested pitch falls below it.
 
 ### +2 octaves
 
 - Lower Output before selecting **+2 octaves**.
 - Confirm the oscillator moves two octaves higher while Cutoff keeps the same event order and timing.
-- Confirm the readout reports **safety-limited** when a requested target reaches the 16000 Hz ceiling.
+- Select B9 as a shared note and confirm the readout names the **16000 Hz ceiling** when the requested pitch exceeds it.
 
 ### Live offset change
 
