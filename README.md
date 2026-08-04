@@ -4,21 +4,31 @@ SpectraSynth is a browser-based MerrinLab instrument prototype for testing a vis
 
 ## Current checkpoint
 
-**v0.34 — accepted Cutoff and Pitch shared-note checkpoint**
-
-Merged `main` commit:
-
-`ccd3d8f7d8fc1b3f7161199f7ecd19e5326c8126`
+**v0.34 — accepted and publicly deployed Cutoff and Pitch shared-note checkpoint**
 
 Exact manually accepted audio candidate:
 
 `4987e2544bd118d89ef339b725c8c35b4e83267d`
 
-Protected review head:
+Protected audio-review head:
 
 `26e5b7254356f1d27da02535ee786d2e0f1b9c1a`
 
-PR #144 was guarded squash-merged on 2 August 2026 after automated verification, owner hands-on listening acceptance and protected review.
+PR #144 squash-merge checkpoint:
+
+`ccd3d8f7d8fc1b3f7161199f7ecd19e5326c8126`
+
+Accepted public deployment commit:
+
+`2da1ea07801ce3b0d461ed98910720c66df799a0`
+
+Current secured `main`:
+
+`4007537cf085b0487ee6b973f073e698046b758e`
+
+The public v0.34 deployment was completed by Pages run `30885076017` and accepted by owner hands-on smoke testing on 4 August 2026.
+
+The later dependency-security repair changed only the lockfile, verification and deployment workflows, contract tests and evidence records. It did not change runtime audio or interface files. The public site therefore remains on the accepted deployment commit until a later exact-SHA Pages dispatch is separately authorised.
 
 ## Current audio path
 
@@ -91,6 +101,7 @@ The current checkpoint does not claim:
 
 ```bash
 npm ci
+npm audit --audit-level=high
 npm test
 npm run build
 npm run preview
@@ -106,13 +117,31 @@ The recorded accepted result is in:
 
 `docs/manual-audio-test-acceptance-2026-08-02.md`
 
-The exact accepted audio candidate was built, automatically verified and manually accepted. The protected review proved that later changes before merge were documentation-only. Any later runtime change requires a new exact-head listening decision.
+The dependency finding and repair are recorded in:
+
+`docs/dependency-security-audit-2026-08-04.md`
+
+The exact audio candidate was built, automatically verified and manually accepted. Subsequent accepted changes did not alter runtime audio or interface files. The secured `main` build produced the same public CSS and JavaScript asset names as the accepted v0.34 deployment.
+
+Any later runtime change requires a new exact-head listening decision.
+
+## Deployment state
+
+The accepted public site is:
+
+`https://armpitpete.github.io/spectrasynth-app/`
+
+Pages deployment is manual-only. A deployment requires an exact 40-character commit SHA, verifies the checked-out SHA, installs locked dependencies, blocks high-severity audit findings, runs tests and builds before artifact upload.
+
+Current `main` has not been redeployed after the dependency-security repair. No future merge, deployment or publication is authorised by this README.
 
 ## Threadkeeper record
 
-- PR #144 merged the accepted checkpoint into `main`.
-- Issues #140, #141 and #142 are completed.
-- PRs #138 and #143 were closed as superseded without merge.
-- Issue #145 reconciles this post-merge repository wording.
+- PR #144 merged the accepted shared-note audio checkpoint.
+- PR #146 reconciled the initial post-merge authority record.
+- PR #149 made Pages deployment manual-only and exact-SHA controlled.
+- Pages run `30885076017` deployed commit `2da1ea07801ce3b0d461ed98910720c66df799a0`; the public smoke test was accepted and Issue #150 closed.
+- PR #152 repaired the build-time PostCSS dependency chain and added blocking audit gates; Issue #151 closed.
+- Issue #153 tracks this README-only state reconciliation.
 
-Deployment and publication remain separate protected decisions. This checkpoint record does not authorise either.
+The next product feature must start from current secured `main` and receive its own bounded issue, implementation evidence, protected review and any required hands-on audio acceptance.
