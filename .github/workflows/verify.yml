@@ -5,14 +5,16 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout branch head
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -20,12 +22,19 @@ jobs:
           cache: npm
       - name: Generate patched PostCSS lockfile candidate
         run: npm update postcss --package-lock-only --ignore-scripts
-      - name: Upload patched lockfile candidate
-        uses: actions/upload-artifact@v4
-        with:
-          name: patched-package-lock
-          path: package-lock.json
-          retention-days: 1
+      - name: Commit generated lockfile candidate
+        if: github.event_name == 'pull_request' && github.actor == 'armpitpete'
+        shell: bash
+        run: |
+          if git diff --quiet -- package-lock.json; then
+            echo "package-lock.json already current"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package-lock.json
+          git commit -m "Update PostCSS lockfile to patched release"
+          git push origin "HEAD:${GITHUB_HEAD_REF}"
       - name: Install candidate dependencies
         run: npm ci
       - name: Require no high-severity audit findings
