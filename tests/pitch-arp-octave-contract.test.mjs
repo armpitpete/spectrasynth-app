@@ -40,6 +40,7 @@ test("Pitch Octave preserves fallback, live retuning and frequency safety", asyn
 
 test("candidate checklist covers musical relationship and safety acceptance", async () => {
   const checklist = await read("docs/manual-audio-test-checklist-v0.35-pitch-octave.md");
+  const normalisedChecklist = checklist.toLowerCase();
 
   for (const phrase of [
     "-2 octaves",
@@ -50,6 +51,9 @@ test("candidate checklist covers musical relationship and safety acceptance", as
     "Output",
     "Panic Stop",
   ]) {
-    assert.match(checklist, new RegExp(phrase.replace(/[+]/g, "\+"), "i"));
+    assert.ok(
+      normalisedChecklist.includes(phrase.toLowerCase()),
+      `manual checklist is missing required phrase: ${phrase}`
+    );
   }
 });
