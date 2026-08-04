@@ -18,17 +18,18 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - name: Install locked dependencies
+      - name: Generate patched PostCSS lockfile candidate
+        run: npm update postcss --package-lock-only --ignore-scripts
+      - name: Upload patched lockfile candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: patched-package-lock
+          path: package-lock.json
+          retention-days: 1
+      - name: Install candidate dependencies
         run: npm ci
-      - name: Capture read-only dependency audit
-        shell: bash
-        run: |
-          set +e
-          npm audit --json > npm-audit.json
-          audit_status=$?
-          cat npm-audit.json
-          printf 'npm audit exit code: %s\n' "$audit_status"
-          exit 0
+      - name: Require no high-severity audit findings
+        run: npm audit --audit-level=high
       - name: Run contract tests
         run: npm test
       - name: Build production bundle
