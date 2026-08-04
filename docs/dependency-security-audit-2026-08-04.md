@@ -38,7 +38,7 @@ The package remained relevant to the build environment because Vite uses PostCSS
 
 ## Repair
 
-- updated only the transitive lock resolution from `postcss@8.5.15` to `postcss@8.5.25`;
+- updated the transitive lock chain from `postcss@8.5.15` and `nanoid@3.3.12` to `postcss@8.5.25` and `nanoid@3.3.17`;
 - retained `vite@8.0.16` and the existing application dependency declaration;
 - added `npm audit --audit-level=high` after locked installation in both review verification and manual exact-SHA Pages deployment;
 - added contract tests proving the audit gate exists before build and the locked PostCSS version is outside the affected range.
