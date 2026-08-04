@@ -20,6 +20,15 @@ jobs:
           cache: npm
       - name: Install locked dependencies
         run: npm ci
+      - name: Capture read-only dependency audit
+        shell: bash
+        run: |
+          set +e
+          npm audit --json > npm-audit.json
+          audit_status=$?
+          cat npm-audit.json
+          printf 'npm audit exit code: %s\n' "$audit_status"
+          exit 0
       - name: Run contract tests
         run: npm test
       - name: Build production bundle
